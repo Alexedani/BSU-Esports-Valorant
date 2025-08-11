@@ -1,0 +1,6 @@
+# node stuffs
+/node_modules
+
+# just in case
+.env
+
