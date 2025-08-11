@@ -22,7 +22,11 @@ async function fetchOverviewData() {
         for(const player in players){
             const playerURL = BASEURL.replace("{playername}", player).replace("{tag}", players[player]);
             console.log(playerURL);
-            //const response = await axios();
+            const response = await axios();
+
+            const RR = $('.mmr').text().trim();
+            const rankImage = $('div.absolute.left-0.top-0 img').attr('src');
+            const bannerImage = $('.rating-entry__rank-icon img').attr('src');
         }
 
     } catch (error) {
