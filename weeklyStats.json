@@ -1,0 +1,82 @@
+[
+  {
+    "player": "愛青空#skies",
+    "rank": {
+      "currenttier": "Immortal 2",
+      "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/25/largeicon.png",
+      "rr": 169
+    },
+    "agents": {
+      "Sova": {
+        "games": 2,
+        "avgACS": 187.91666666666666,
+        "avgKD": 0.7767857142857143,
+        "winRate": 0
+      },
+      "Neon": {
+        "games": 2,
+        "avgACS": 174.36278195488723,
+        "avgKD": 0.6514423076923077,
+        "winRate": 0
+      },
+      "Iso": {
+        "games": 1,
+        "avgACS": 322.60869565217394,
+        "avgKD": 2.3333333333333335,
+        "winRate": 100
+      },
+      "Yoru": {
+        "games": 1,
+        "avgACS": 258.3157894736842,
+        "avgKD": 1.0625,
+        "winRate": 0
+      },
+      "Jett": {
+        "games": 3,
+        "avgACS": 247.11018518518517,
+        "avgKD": 1.2861111111111112,
+        "winRate": 66.66666666666666
+      },
+      "Chamber": {
+        "games": 1,
+        "avgACS": 267.9130434782609,
+        "avgKD": 1.9166666666666667,
+        "winRate": 100
+      }
+    }
+  },
+  {
+    "player": "orphan#K0s",
+    "rank": {
+      "currenttier": "Immortal 3",
+      "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/26/largeicon.png",
+      "rr": 226
+    },
+    "agents": {
+      "Vyse": {
+        "games": 4,
+        "avgACS": 193.05099245075604,
+        "avgKD": 1.1763392857142858,
+        "winRate": 75
+      },
+      "Cypher": {
+        "games": 3,
+        "avgACS": 202.05282953761215,
+        "avgKD": 1.3314393939393938,
+        "winRate": 66.66666666666666
+      },
+      "Killjoy": {
+        "games": 1,
+        "avgACS": 137.15,
+        "avgKD": 0.9166666666666666,
+        "winRate": 100
+      },
+      "Sova": {
+        "games": 2,
+        "avgACS": 233.3695652173913,
+        "avgKD": 1.1473214285714286,
+        "winRate": 50
+      }
+    }
+  }
+]
