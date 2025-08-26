@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valorant Ranked Tracking Tool</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Background image -->
+    <img src="esports-arena.webp" alt="Valorant Background" class="background">
+
+
+  <!-- Logo -->
+  <div class="logo-container">
+    <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo">
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+    <h1>Valorant Ranked Tracking</h1>
+
+    <div class="form-group">
+      <input type="text" id="playerName" placeholder="Player Name">
+      <input type="text" id="playerTag" placeholder="Tag">
+      <button onclick="addPlayer()">Add Player</button>
+    </div>
+
+    <h2>Tracked Players</h2>
+    <div class="table-container">
+      <table id="playersTable">
+        <thead>
+          <tr>
+            <th>Player Name</th>
+            <th>Tag</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Added players will show here -->
+        </tbody>
+      </table>
+    </div>
+
+    <button class="scrape-btn">Run Scrape Now</button>
+  </div>
+
+  <script>
+    // Add Player
+    function addPlayer() {
+      const name = document.getElementById("playerName").value.trim();
+      const tag = document.getElementById("playerTag").value.trim();
+      if (!name || !tag) return alert("Enter both name and tag!");
+
+      let players = JSON.parse(localStorage.getItem("players")) || [];
+      players.push({ name, tag });
+      localStorage.setItem("players", JSON.stringify(players));
+      renderPlayers();
+    }
+
+    // Remove Player
+    function removePlayer(index) {
+      let players = JSON.parse(localStorage.getItem("players")) || [];
+      players.splice(index, 1); // remove at index
+      localStorage.setItem("players", JSON.stringify(players));
+      renderPlayers();
+    }
+
+    // Render Players Table
+    function renderPlayers() {
+      const tbody = document.querySelector("#playersTable tbody");
+      tbody.innerHTML = "";
+      const players = JSON.parse(localStorage.getItem("players")) || [];
+
+      if (players.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
+        return;
+      }
+
+      players.forEach((p, index) => {
+        const row = `
+          <tr>
+            <td>${p.name}</td>
+            <td>${p.tag}</td>
+            <td class="remove-cell">
+              <button class="remove-btn" onclick="removePlayer(${index})">❌</button>
+            </td>
+          </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    // Load on page refresh
+    renderPlayers();
+
+      // Redirect if not logged in
+  if (localStorage.getItem("loggedIn") !== "true") {
+    window.location.href = "index.html";
+  }
+  </script>
+</body>
+</html>

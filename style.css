@@ -1,0 +1,158 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body, html {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: white;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Blurred Background */
+.background {
+  position: fixed;          /* stays fixed behind everything */
+  top: 0;
+  left: 0;
+  width: 100vw;             /* full width of viewport */
+  height: 100vh;            /* full height of viewport */
+  background: url("your-background.jpg") no-repeat center center;
+  background-size: cover;   /* scale image to always cover */
+  filter: blur(8px);
+  z-index: -1;              /* ensure it's behind content */
+}
+
+/* Logo */
+.logo-container {
+  margin-bottom: 20px;
+}
+.logo {
+  max-width: 150px;
+}
+
+/* Card */
+.card {
+  background: #0033A0; /* Boise State blue */
+  border: 3px solid #D64309; /* Boise State orange */
+  border-radius: 15px;
+  padding: 25px;
+  width: 450px;
+  max-height: 80vh; /* keep card on screen */
+  overflow: hidden; /* keep content inside */
+  display: flex;
+  flex-direction: column;
+}
+
+.card h1 {
+  margin-bottom: 15px;
+  font-size: 1.6rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+input {
+  padding: 8px;
+  border: 2px solid #D64309;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  font-size: 0.9rem;
+}
+
+input::placeholder {
+  color: rgba(255,255,255,0.7);
+}
+
+button {
+  background: #D64309;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+button:hover {
+  background: #FF6B35;
+}
+
+.scrape-btn {
+  margin-top: 15px;
+  width: 100%;
+}
+
+/* Table container for scrolling */
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  max-height: 250px; /* scroll area */
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table th, table td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.empty-msg {
+  text-align: center;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+}
+
+/* Remove Button Column */
+.remove-cell {
+  width: 30px;
+}
+
+.remove-btn {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #D64309; /* Boise State orange-red */
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.remove-btn:hover {
+  transform: scale(1.2);
+  color: #FF0000; /* bright red */
+}
+
+/* Login Card */
+.login-card {
+  width: 300px;
+  padding: 20px;
+  text-align: center;
+}
+
+.login-card input {
+  width: 100%;
+  margin-bottom: 10px;
+}

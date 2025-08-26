@@ -1,0 +1,78 @@
+[
+  {
+    "player": "愛青空#skies",
+    "rank": {
+      "currenttier": "Immortal 1",
+      "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/24/largeicon.png",
+      "rr": 19
+    },
+    "agents": {
+      "Clove": {
+        "games": 32,
+        "avgADR": 163.5,
+        "avgKD": 1.1000000000000005,
+        "winRate": 46.875
+      },
+      "Fade": {
+        "games": 3,
+        "avgADR": 100.0,
+        "avgKD": 0.6,
+        "winRate": 0.0
+      },
+      "KAY/O": {
+        "games": 1,
+        "avgADR": 147.0,
+        "avgKD": 1.0,
+        "winRate": 0.0
+      },
+      "Iso": {
+        "games": 1,
+        "avgADR": 103.0,
+        "avgKD": 0.4,
+        "winRate": 0.0
+      },
+      "Yoru": {
+        "games": 2,
+        "avgADR": 160.0,
+        "avgKD": 1.4500000000000002,
+        "winRate": 100.0
+      },
+      "Jett": {
+        "games": 9,
+        "avgADR": 148.11111111111111,
+        "avgKD": 1.1333333333333335,
+        "winRate": 44.44444444444444
+      },
+      "Chamber": {
+        "games": 1,
+        "avgADR": 140.0,
+        "avgKD": 0.9,
+        "winRate": 0.0
+      },
+      "Cypher": {
+        "games": 1,
+        "avgADR": 151.0,
+        "avgKD": 0.8,
+        "winRate": 0.0
+      },
+      "Reyna": {
+        "games": 1,
+        "avgADR": 118.0,
+        "avgKD": 0.6,
+        "winRate": 0.0
+      },
+      "Neon": {
+        "games": 1,
+        "avgADR": 154.0,
+        "avgKD": 0.9,
+        "winRate": 0.0
+      },
+      "Raze": {
+        "games": 1,
+        "avgADR": 158.0,
+        "avgKD": 0.9,
+        "winRate": 0.0
+      }
+    }
+  }
+]

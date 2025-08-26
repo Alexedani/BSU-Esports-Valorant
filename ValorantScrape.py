@@ -18,16 +18,7 @@ from datetime import datetime, timedelta
 
 
 players = {
-    "愛青空": "skies",
-    "master": "bsu",
-    "Skelesis": "Folk",
-    "orphan": "K0s",
-    "Prestige": "bsu",
-    "daimyo": "86th",
-    "Kaiiyagi": "2128",
-    "Melloton": "bsu",
-    "danny": "4314",
-    "Crimson": "bsu"
+    "愛青空": "skies"
 }
 
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
@@ -338,36 +329,24 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
 
 def fetch_player_data():
     results = []
-
     for name, tag in players.items():
         try:
             rank = fetch_rank(name, tag)
             agents = fetch_agent_stats(name, tag)
-
-            player_data = {
-                "player": f"{name}#{tag}",
-                "rank": rank,
-                "agents": agents
-            }
+            player_data = {"player": f"{name}#{tag}", "rank": rank, "agents": agents}
             results.append(player_data)
-
-            print(f"\n[RESULT] {json.dumps(player_data, indent=2, ensure_ascii=False)}\n")
-
-        except requests.HTTPError as http_err:
-            print(f"[ERROR] HTTP error for {name}#{tag}", http_err.response.json())
         except Exception as e:
-            print(f"[ERROR] Failed for {name}#{tag} -> {str(e)}")
+            print(f"[ERROR] Failed for {name}#{tag}: {str(e)}")
 
-    # Optional: keep local copy
     with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print("\n[FINAL] Results written to weeklyStats.json")
 
-    # Send ONLY the weekly stats JSON (no wrapper object)
     posted = send_to_google_apps_script(results)
-    print("[INFO] Posted weekly stats to Google sheets:", posted)
+    print("[INFO] Posted weekly stats to Google Sheets:", posted)
 
+    return results  # <-- added return so Flask can send results back
 
 
 if __name__ == "__main__":
+    print("[INFO] Running scraper directly...")
     fetch_player_data()
