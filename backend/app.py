@@ -40,24 +40,31 @@ def run_scraper(players):
     progress["logs"] = []
     progress["current"] = 0
     progress["total"] = len(players)
-
     log(f"[INFO] Starting scrape for {len(players)} players...")
 
-    # 🔸 Fetch ALL players in one call (this also POSTS the whole list to GAS)
-    try:
-        results = fetch_player_data(players)
-        progress["current"] = progress["total"]
-    except Exception as e:
-        log(f"[ERROR] Batch fetch failed: {e}")
-        progress["running"] = False
-        return
+    results = []
+    for idx, (name, tag) in enumerate(players.items(), 1):
+        try:
+            log(f"[INFO] Fetching {name}#{tag}...")
+            piece = fetch_player_data({name: tag}, post=False)[0]  # no post here
+            results.append(piece)
+            log(f"[OK] Finished {name}#{tag}")
+        except Exception as e:
+            log(f"[ERROR] {name}#{tag}: {e}")
+            results.append({"player": f"{name}#{tag}", "error": str(e)})
+        finally:
+            progress["current"] = idx  # <-- moves 1/3, 2/3, 3/3
 
-    # Save last results locally
+    from valorantFetch import send_to_google_apps_script
+    posted = send_to_google_apps_script(results)  # post once for all players
+    log(f"[INFO] Posted weekly stats to Google Sheets: {posted}")
+
     with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     log("[INFO] Scraper finished.")
     progress["running"] = False
+
 
 
 # ========= API Routes ==========

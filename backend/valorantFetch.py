@@ -270,28 +270,21 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
         return False
 
 # ========= Orchestrator =========
-def fetch_player_data(players: dict):
-    """
-    players: dict like {'master': 'bsu', 'skelesis': 'Folk'}
-    Returns list of player result dicts. Also writes weeklyStats.json and POSTs to GAS.
-    """
+def fetch_player_data(players: dict, post=True):
     results = []
     for name, tag in players.items():
-        try:
-            rank = fetch_rank(name, tag)
-            agents = fetch_agent_stats(name, tag)
-            results.append({"player": f"{name}#{tag}", "rank": rank, "agents": agents})
-        except Exception as e:
-            print(f"[ERROR] Failed for {name}#{tag}: {str(e)}")
-            results.append({"player": f"{name}#{tag}", "error": str(e)})
+        # ... build each player's result ...
+        results.append({"player": f"{name}#{tag}", "rank": rank, "agents": agents})
 
-    # Save locally for your pipeline
     with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    posted = send_to_google_apps_script(results)
-    print("[INFO] Posted weekly stats to Google Sheets:", posted)
+    if post:
+        posted = send_to_google_apps_script(results)
+        print("[INFO] Posted weekly stats to Google Sheets:", posted)
+
     return results
+
 
 # ========= Local run =========
 if __name__ == "__main__":
