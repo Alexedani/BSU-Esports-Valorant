@@ -356,5 +356,4 @@ def fetch_player_data(players: dict):
 
 
 if __name__ == "__main__":
-    print("[INFO] Running scraper directly...")
     fetch_player_data()
