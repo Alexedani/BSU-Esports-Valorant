@@ -1,29 +1,32 @@
 import requests
 import json
+import time
 from datetime import datetime, timedelta
+from dateutil import parser as dateparser
 import os
 
+# --- Config ---
 CONFIG_FILE = "players.json"
+WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
+BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr"
+BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v4/matches"
+REGION = "na"
+API_KEY = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"
 
+# --- Helpers ---
 def load_players():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
-BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr"
-BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v3/matches"
-REGION = "na"
-API_KEY = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"
-
 def fetch_rank(name, tag):
     url = f"{BASEURL_RANK}/{REGION}/{name}/{tag}"
     headers = {"Authorization": API_KEY}
     print(f"[INFO] Fetching rank for {name}#{tag} -> {url}")
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()["data"]
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    data = resp.json()["data"]
 
     rank_data = {
         "currenttier": data.get("current_data", {}).get("currenttierpatched", "Unranked"),
@@ -36,69 +39,67 @@ def fetch_rank(name, tag):
 def fetch_agent_stats(name, tag):
     print(f"[INFO] Fetching match history for {name}#{tag}")
     headers = {"Authorization": API_KEY}
-    cutoff = datetime.now() - timedelta(days=7)
+    cutoff = datetime.now(datetime.utcnow().astimezone().tzinfo) - timedelta(days=7)
 
     aggregated = {}
-    page = 1
-    stop = False
+    start = 0
+    size = 10
+    done = False
 
-    while not stop:
-        url = f"{BASEURL_MATCHES}/{REGION}/{name}/{tag}?mode=competitive&size=10&page={page}"
+    while not done:
+        url = f"{BASEURL_MATCHES}/{REGION}/pc/{name}/{tag}?mode=competitive&size={size}&start={start}"
         print(f"[DEBUG] Fetching {url}")
         resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        matches = resp.json().get("data", [])
 
-        if not matches:
-            print("[INFO] No more matches found.")
+        # --- Handle rate limits ---
+        if resp.status_code == 429:
+            reset_after = int(resp.headers.get("x-ratelimit-reset", 60))
+            print(f"[WARN] 429 Too Many Requests — sleeping {reset_after} seconds")
+            time.sleep(reset_after)
+            continue
+
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        if not data:
+            print("[INFO] No more matches returned.")
             break
 
-        for match in matches:
-            # Match start (unix timestamp in seconds)
-            ts = match["metadata"]["game_start"]
-            game_date = datetime.fromtimestamp(ts)
+        for match in data:
+            meta = match.get("metadata", {})
+            game_date = dateparser.parse(meta.get("started_at"))
 
             if game_date < cutoff:
-                print(f"[INFO] Match {match['metadata']['matchid']} is older than cutoff → stopping.")
-                stop = True
+                print(f"[INFO] Reached match older than 7 days ({game_date}), stopping.")
+                done = True
                 break
 
-            # Find this player in the match
-            player_data = None
-            for p in match["players"]["all_players"]:
-                if p["name"].lower() == name.lower() and p["tag"].lower() == tag.lower():
-                    player_data = p
+            # Did this player participate?
+            player_obj = None
+            for p in match.get("players", []):
+                if p.get("name") == name and p.get("tag") == tag:
+                    player_obj = p
                     break
 
-            if not player_data:
-                continue  # skip if player not found
+            if not player_obj:
+                continue
 
-            agent = player_data["character"]
-            stats = player_data["stats"]
+            agent_name = player_obj.get("agent", {}).get("name", "Unknown")
+            stats = player_obj.get("stats", {})
+            adr = stats.get("damage", {}).get("dealt", 0) / max(1, match["metadata"].get("game_length_in_ms", 1) / (1000 * 120))  # rough ADR estimate
+            kd = stats.get("kills", 0) / max(1, stats.get("deaths", 1))
+            win = any(team.get("team_id") == player_obj.get("team_id") and team.get("won") for team in match.get("teams", []))
 
-            # ADR: total damage / rounds played
-            adr_val = 0
-            if match["metadata"].get("rounds_played", 0) > 0:
-                adr_val = player_data.get("damage_made", 0) / match["metadata"]["rounds_played"]
+            if agent_name not in aggregated:
+                aggregated[agent_name] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
 
-            # KD ratio
-            kd_val = stats["kills"] / stats["deaths"] if stats["deaths"] > 0 else stats["kills"]
-
-            # Win/loss
-            team = player_data["team"].lower()
-            win = match["teams"][team]["has_won"]
-
-            # Aggregate
-            if agent not in aggregated:
-                aggregated[agent] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
-
-            aggregated[agent]["games"] += 1
-            aggregated[agent]["totalADR"] += adr_val
-            aggregated[agent]["totalKD"] += kd_val
+            aggregated[agent_name]["games"] += 1
+            aggregated[agent_name]["totalADR"] += adr
+            aggregated[agent_name]["totalKD"] += kd
             if win:
-                aggregated[agent]["wins"] += 1
+                aggregated[agent_name]["wins"] += 1
 
-        page += 1
+        start += size
+        time.sleep(2)  # pacing requests
 
     # Finalize averages
     for agent, stats in aggregated.items():
@@ -108,7 +109,7 @@ def fetch_agent_stats(name, tag):
         stats["winRate"] = (stats["wins"] / games) * 100
         del stats["totalADR"], stats["totalKD"], stats["wins"]
 
-    print(f"[OK] Aggregated API stats for {name}#{tag}: {aggregated}")
+    print(f"[OK] Aggregated stats for {name}#{tag}: {aggregated}")
     return aggregated
 
 def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeout: int = 20) -> bool:
@@ -144,6 +145,7 @@ def fetch_player_data(players: dict):
 
     return results
 
+# --- Run locally ---
 if __name__ == "__main__":
     players = {
         "master": "bsu"
