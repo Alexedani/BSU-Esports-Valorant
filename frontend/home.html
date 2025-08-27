@@ -15,9 +15,9 @@
     <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo"/>
   </div>
 
-  <!-- Card -->
+  <!-- Main Card -->
   <div class="card">
-    <!-- Help button INSIDE the card -->
+    <!-- help button -->
     <button class="help-btn" aria-label="Help" onclick="toggleHelp(true)">?</button>
 
     <h1>Valorant Ranked Tracking</h1>
@@ -29,7 +29,7 @@
       <button onclick="addPlayer()">Add Player</button>
     </div>
 
-    <!-- <h2>Tracked Players</h2> -->
+
     <div class="table-container">
       <table id="playersTable">
         <thead>
@@ -40,19 +40,18 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Players will show here -->
+          <!-- players are gonna be added here -->
         </tbody>
       </table>
     </div>
 
-    <!-- Run Scraper -->
     <button class="scrape-btn" onclick="runScraper()">Run Script</button>
   </div>
 
-  <!-- Terminal box OUTSIDE card -->
+  <!-- Terminal box-->
   <div id="terminal" title="Scroll to view history"></div>
 
-  <!-- Help modal -->
+  <!--info overlay-->
   <div id="helpOverlay" class="help-overlay" onclick="toggleHelp(false)">
     <div class="help-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
       <div class="help-header">
@@ -105,7 +104,6 @@
   </div>
 
 <script>
-  // Use same-origin so this works locally and on Render
   const BASE_URL = "https://bsu-esports-valorant.onrender.com";
   const SHEET_URL = "https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0";
 
@@ -132,7 +130,7 @@
     a.target = "_blank";
     a.rel = "noopener";
     a.textContent = text;
-    a.style.color = "#fff"; // make link white in terminal
+    a.style.color = "#fff";
     line.appendChild(a);
     term.appendChild(line);
     prune(term);
@@ -228,13 +226,13 @@
     }
   }
 
-  // --------------- Help Modal ---------------
+  //help button
   function toggleHelp(show) {
     const ov = document.getElementById("helpOverlay");
     ov.style.display = show ? "flex" : "none";
   }
 
-  // --------------- Scraper ---------------
+  //run script
   let pollInterval;
 
   async function runScraper() {
@@ -272,7 +270,6 @@
     if (statusData.status === "done") {
       clearInterval(pollInterval);
       appendLog("✅ Scrape finished!");
-      // add clickable link to terminal
       appendLinkToLog(SHEET_URL);
     } else if (statusData.status === "error") {
       clearInterval(pollInterval);
@@ -280,12 +277,12 @@
     }
   }
 
-  // Redirect if not logged in
+  //redirect if not logged in
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
 
-  // Initial load
+  //initial load
   renderPlayers();
 </script>
 

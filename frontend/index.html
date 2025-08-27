@@ -25,10 +25,10 @@
 <script>
   function checkPassword() {
     const input = document.getElementById("password").value;
-    const correctPassword = "bsu2025"; // <-- change to your actual password
+    const correctPassword = "bsu2025"; 
 
     if (input === correctPassword) {
-      localStorage.setItem("loggedIn", "true"); // set login flag
+      localStorage.setItem("loggedIn", "true");
       window.location.href = "home.html";
     } else {
       alert("Incorrect password. Try again.");
