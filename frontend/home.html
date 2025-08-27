@@ -46,49 +46,62 @@
   </div>
 
 <script>
-  const BASE_URL = "https://your-render-service.onrender.com"; // <-- replace with your Render backend URL
+  const BASE_URL = "https://bsu-esports-valorant.onrender.com"; // your Render backend
 
-  // --- Add Player ---
-  function addPlayer() {
+  // Add Player
+  async function addPlayer() {
     const name = document.getElementById("playerName").value.trim();
     const tag = document.getElementById("playerTag").value.trim();
-    if (!name || !tag) return alert("Enter both name and tag!");
+    if (!name || !tag) {
+      return alert("Enter both name and tag!");
+    }
 
-    fetch(`${BASE_URL}/save-player`, {
+    const res = await fetch(`${BASE_URL}/save-player`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, tag })
-    })
-      .then(res => res.json())
-      .then(players => renderPlayers(players))
-      .catch(err => console.error("Error saving player:", err));
+    });
+
+    if (res.ok) {
+      await renderPlayers();
+      document.getElementById("playerName").value = "";
+      document.getElementById("playerTag").value = "";
+    } else {
+      alert("Error adding player");
+    }
   }
 
-  // --- Remove Player ---
-  function removePlayer(name) {
-    fetch(`${BASE_URL}/remove-player`, {
+  // Remove Player
+  async function removePlayer(name) {
+    const res = await fetch(`${BASE_URL}/remove-player`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name })
-    })
-      .then(res => res.json())
-      .then(players => renderPlayers(players))
-      .catch(err => console.error("Error removing player:", err));
+    });
+
+    if (res.ok) {
+      await renderPlayers();
+    } else {
+      alert("Error removing player");
+    }
   }
 
-  // --- Render Players Table ---
-  function renderPlayers(players) {
+  // Render Players Table
+  async function renderPlayers() {
     const tbody = document.querySelector("#playersTable tbody");
     tbody.innerHTML = "";
 
-    const entries = Object.entries(players); // [ [name, tag], [name, tag], ... ]
+    const res = await fetch(`${BASE_URL}/players`);
+    const players = await res.json();
 
-    if (entries.length === 0) {
+    const names = Object.keys(players);
+    if (names.length === 0) {
       tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
       return;
     }
 
-    entries.forEach(([name, tag]) => {
+    names.forEach((name) => {
+      const tag = players[name];
       const row = `
         <tr>
           <td>${name}</td>
@@ -101,32 +114,34 @@
     });
   }
 
-  // --- Load Players on Page Load ---
-  function loadPlayers() {
-    fetch(`${BASE_URL}/players`)
-      .then(res => res.json())
-      .then(players => renderPlayers(players))
-      .catch(err => console.error("Error loading players:", err));
+  // Run Scraper
+  async function runScraper() {
+    const btn = document.querySelector(".scrape-btn");
+    btn.disabled = true;
+    btn.innerText = "Running scrape...";
+
+    const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      console.log("Scraper results:", data);
+      alert("Scrape finished! Check console for results.");
+    } else {
+      alert("Scrape failed.");
+    }
+
+    btn.disabled = false;
+    btn.innerText = "Run Scrape Now";
   }
 
-  // --- Run Scraper ---
-  function runScraper() {
-    fetch(`${BASE_URL}/run-scraper`, { method: "POST" })
-      .then(res => res.json())
-      .then(data => {
-        console.log("Scraper results:", data);
-        alert("Scraper finished! Check Google Sheets or console for results.");
-      })
-      .catch(err => console.error("Error running scraper:", err));
-  }
-
-  // --- Auth Check ---
+  // Redirect if not logged in
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
-  } else {
-    loadPlayers();
   }
+
+  // Initial load
+  renderPlayers();
 </script>
+
 
 
 </body>
