@@ -61,8 +61,6 @@ def make_driver():
     options.add_argument("user-agent=Mozilla/5.0")
     return uc.Chrome(options=options, use_subprocess=True)
 
-
-#Helper for fetchAgentStats
 def get_stat_value(row, label_text):
     for block in row.select(".trn-match-row__block"):
         label = block.select_one(".trn-match-row__text-label")
@@ -110,7 +108,7 @@ def _wait_for_progress(driver, before_rows, max_wait=15.0, idle_grace=1.5):
 
 def fetch_agent_stats(name, tag):
     print(f"[INFO] Starting scraper for {name}#{tag}")
-    driver = make_driver()   # <<< USE NEW DRIVER
+    driver = make_driver()
 
     try:
         safe_name = urllib.parse.quote(name)
@@ -126,8 +124,7 @@ def fetch_agent_stats(name, tag):
         )
         print("[OK] Match rows detected")
 
-        # ... rest of your scraping logic unchanged ...
-
+        cutoff = datetime.now() - timedelta(days=7)
         soup = BeautifulSoup(driver.page_source, "html.parser")
         aggregated = {}
         seen_match_ids = set()
@@ -135,9 +132,66 @@ def fetch_agent_stats(name, tag):
         all_rows = soup.select("div.trn-match-row")
         print(f"[INFO] Total .trn-match-row elements found: {len(all_rows)}")
 
-        # loop unchanged...
-        # ...
+        for idx, row in enumerate(all_rows):
+            link = row.select_one("a[href*='/match/']")
+            match_id = None
+            if link and link.get("href"):
+                match_id = link.get("href").rstrip("/").split("/")[-1].strip()
+            if not match_id:
+                match_id = f"hash:{hash(row.get_text(' ', strip=True)[:300])}"
+            if match_id in seen_match_ids:
+                continue
+            seen_match_ids.add(match_id)
 
+            header = row.find_previous("div", class_="trn-match-header")
+            if not header:
+                continue
+
+            header_text = header.get_text(" ", strip=True)
+            parts = header_text.split()
+            if len(parts) < 2:
+                continue
+
+            try:
+                game_date = datetime.strptime(" ".join(parts[:2]) + f" {datetime.now().year}", "%b %d %Y")
+            except:
+                continue
+
+            if game_date < cutoff:
+                continue
+
+            agent_el = row.select_one(".vmr-agent img")
+            if not agent_el:
+                continue
+            agent_name = agent_el.get("alt", "").strip() or "Unknown"
+
+            classes = row.get("class") or []
+            win = any(cls.endswith("--outcome-win") for cls in classes)
+
+            kd_val = get_stat_value(row, "K/D")
+            adr_val = get_stat_value(row, "ADR")
+            if adr_val is None:
+                adr_val = get_stat_value(row, "Avg Damage/Round")
+
+            if agent_name not in aggregated:
+                aggregated[agent_name] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
+
+            aggregated[agent_name]["games"] += 1
+            if adr_val is not None:
+                aggregated[agent_name]["totalADR"] += adr_val
+            if kd_val is not None:
+                aggregated[agent_name]["totalKD"] += kd_val
+            if win:
+                aggregated[agent_name]["wins"] += 1
+
+        for agent, stats in aggregated.items():
+            games = stats["games"] or 1
+            stats["avgADR"] = stats["totalADR"] / games
+            stats["avgKD"] = stats["totalKD"] / games
+            stats["winRate"] = (stats["wins"] / games) * 100
+            del stats["totalADR"], stats["totalKD"], stats["wins"]
+
+        print(f"\n[OK] Aggregated stats for {name}#{tag}: {aggregated}")
         return aggregated
 
     finally:
