@@ -43,32 +43,18 @@ def fetch_rank(name, tag):
 
 
 def make_driver():
-    print("[DEBUG] Creating Chrome driver...")
     options = uc.ChromeOptions()
 
-    if os.environ.get("RENDER", "false").lower() == "true":
-        print("[DEBUG] Running in Render: enabling headless options")
-        options.headless = True
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-default-apps")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-sync")
-        options.add_argument("--disable-translate")
-        options.add_argument("--hide-scrollbars")
-        options.add_argument("--mute-audio")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--remote-debugging-port=9222")
-    else:
-        print("[DEBUG] Running locally: launching full browser")
-        options.headless = False
+    # Always run with GUI (Xvfb provides fake display on Render)
+    options.headless = False  
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("user-agent=Mozilla/5.0")
 
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-    print("[DEBUG] Finished Chrome options setup")
+    print("[DEBUG] ChromeOptions configured (headless disabled, running under Xvfb)")
     return uc.Chrome(options=options, use_subprocess=True)
 
 
