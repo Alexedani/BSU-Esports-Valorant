@@ -1,44 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Valorant Ranked Tracking Tool</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <!-- Background -->
-  <img src="esports-arena.webp" alt="Valorant Background" class="background">
+  <img src="esports-arena.webp" alt="Valorant Background" class="background"/>
 
   <!-- Logo -->
   <div class="logo-container">
-    <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo">
+    <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo"/>
   </div>
 
-  <!-- TODO:
-  add questionmark button for
-  what is this tool?
-  how to use it?
-  where can i see the results?
-  Who can i contact if i need help with this? 
-  hovering mouse over the terminal allows you to scroll to view history
-  my future plans for this webapp (include other games?)
-  The tracked players table will stay as is even if you leave the site
-  unfortunately it will be wiped whenever i update the web application so i will try to not update it
-  too often as i dont want to make anyone have to put back in all the namees and tags
-  -->
   <!-- Card -->
   <div class="card">
+    <!-- Help button INSIDE the card -->
+    <button class="help-btn" aria-label="Help" onclick="toggleHelp(true)">?</button>
+
     <h1>Valorant Ranked Tracking</h1>
 
     <!-- Add Player Form -->
     <div class="form-group">
-      <input type="text" id="playerName" placeholder="Player Name">
-      <input type="text" id="playerTag" placeholder="Tag">
+      <input type="text" id="playerName" placeholder="Player Name"/>
+      <input type="text" id="playerTag" placeholder="Tag"/>
       <button onclick="addPlayer()">Add Player</button>
     </div>
 
-    <h2>Tracked Players</h2>
+    <!-- <h2>Tracked Players</h2> -->
     <div class="table-container">
       <table id="playersTable">
         <thead>
@@ -55,49 +46,132 @@
     </div>
 
     <!-- Run Scraper -->
-    <button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
+    <button class="scrape-btn" onclick="runScraper()">Run Script</button>
+    <!-- Hidden until scrape finishes -->
+    <a id="resultsLink" href="#" target="_blank" rel="noopener" style="display:none; margin-top:8px; display:inline-block;">View Results</a>
   </div>
 
   <!-- Terminal box OUTSIDE card -->
-  <div id="terminal"></div>
+  <div id="terminal" title="Scroll to view history"></div>
+
+  <!-- Help modal -->
+  <div id="helpOverlay" class="help-overlay" onclick="toggleHelp(false)">
+    <div class="help-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+      <div class="help-header">
+        <h3>About this tool</h3>
+        <button class="help-close" aria-label="Close" onclick="toggleHelp(false)">&times;</button>
+      </div>
+      <div class="help-body">
+        <h4>What is this tool?</h4>
+        <p>Tracks Valorant ranked data for listed players and sends weekly stats to our Google Sheet.</p>
+
+        <h4>How to use it</h4>
+        <ol>
+          <li>Add players by name + tag (e.g., <code>master</code> / <code>bsu</code>).</li>
+          <li>Click <strong>Run Scrape Now</strong> and watch the terminal.</li>
+          <li>When done, click <strong>View Results</strong> to open the sheet.</li>
+        </ol>
+
+        <h4>Where are results?</h4>
+        <p>
+          <a href="https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0" target="_blank" rel="noopener">
+            Open the Google Sheet
+          </a>
+        </p>
+
+        <h4>Need help?</h4>
+        <p>Contact the site admin.</p>
+
+        <h4>Notes</h4>
+        <ul>
+          <li>You can scroll the terminal to view recent logs.</li>
+          <li>The tracked players table persists on the server; it may reset on app updates.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
 <script>
-  const BASE_URL = "https://bsu-esports-valorant.onrender.com";
+  // Use same-origin so this works locally and on Render
+  const BASE_URL  = window.location.origin;
+  const SHEET_URL = "https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0";
 
-  // ---------------- Player Management ----------------
+  // --------------- Helpers (terminal) ---------------
+  function prune(term) {
+    if (term.childNodes.length > 20) term.removeChild(term.firstChild);
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function appendLog(msg) {
+    const term = document.getElementById("terminal");
+    const line = document.createElement("div");
+    line.textContent = msg; // keep plain text for safety
+    term.appendChild(line);
+    prune(term);
+  }
+
+  function appendLinkToLog(url, text = "View Results") {
+    const term = document.getElementById("terminal");
+    const line = document.createElement("div");
+    line.append("🔗 ");
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = text;
+    line.appendChild(a);
+    term.appendChild(line);
+    prune(term);
+  }
+
+  // --------------- Player Management ---------------
   async function addPlayer() {
     const name = document.getElementById("playerName").value.trim();
-    const tag = document.getElementById("playerTag").value.trim();
-    if (!name || !tag) {
-      return alert("Enter both name and tag!");
-    }
+    const tag  = document.getElementById("playerTag").value.trim();
+    if (!name || !tag) return alert("Enter both name and tag!");
 
-    const res = await fetch(`${BASE_URL}/save-player`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, tag })
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/save-player`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, tag })
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error("Add player failed:", res.status, txt);
+        alert(`Error adding player: ${res.status} ${txt}`);
+        return;
+      }
+
       await renderPlayers();
       document.getElementById("playerName").value = "";
-      document.getElementById("playerTag").value = "";
-    } else {
-      alert("Error adding player");
+      document.getElementById("playerTag").value  = "";
+    } catch (err) {
+      console.error("Add player network error:", err);
+      alert("Network error adding player (see console).");
     }
   }
 
   async function removePlayer(name) {
-    const res = await fetch(`${BASE_URL}/remove-player`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name })
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/remove-player`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error("Remove player failed:", res.status, txt);
+        alert(`Error removing player: ${res.status} ${txt}`);
+        return;
+      }
+
       await renderPlayers();
-    } else {
-      alert("Error removing player");
+    } catch (err) {
+      console.error("Remove player network error:", err);
+      alert("Network error removing player (see console).");
     }
   }
 
@@ -105,48 +179,57 @@
     const tbody = document.querySelector("#playersTable tbody");
     tbody.innerHTML = "";
 
-    const res = await fetch(`${BASE_URL}/players`);
-    const players = await res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/players`);
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error("Fetch players failed:", res.status, txt);
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">Failed to load players</td></tr>`;
+        return;
+      }
 
-    const names = Object.keys(players);
-    if (names.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
-      return;
+      const players = await res.json();
+      const names = Object.keys(players);
+
+      if (names.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
+        return;
+      }
+
+      names.forEach((name) => {
+        const tag = players[name];
+        const row = `
+          <tr>
+            <td>${name}</td>
+            <td>${tag}</td>
+            <td class="remove-cell">
+              <button class="remove-btn" onclick="removePlayer('${name}')" aria-label="Remove">&times;</button>
+            </td>
+          </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+    } catch (err) {
+      console.error("Render players network error:", err);
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">Network error loading players</td></tr>`;
     }
-
-    names.forEach((name) => {
-      const tag = players[name];
-      const row = `
-        <tr>
-          <td>${name}</td>
-          <td>${tag}</td>
-          <td class="remove-cell">
-            <button class="remove-btn" onclick="removePlayer('${name}')">❌</button>
-          </td>
-        </tr>`;
-      tbody.innerHTML += row;
-    });
   }
 
-  // ---------------- Terminal ----------------
-  function appendLog(msg) {
-    const term = document.getElementById("terminal");
-    const line = document.createElement("div");
-    line.textContent = msg;
-    term.appendChild(line);
-
-    // keep only last ~20 lines
-    if (term.childNodes.length > 20) term.removeChild(term.firstChild);
-
-    term.scrollTop = term.scrollHeight;
+  // --------------- Help Modal ---------------
+  function toggleHelp(show) {
+    const ov = document.getElementById("helpOverlay");
+    ov.style.display = show ? "flex" : "none";
   }
 
-  // ---------------- Scraper ----------------
+  // --------------- Scraper ---------------
   let pollInterval;
 
   async function runScraper() {
     document.getElementById("terminal").innerHTML = "";
     appendLog("▶ Starting scrape...");
+
+    // hide results link until done
+    const link = document.getElementById("resultsLink");
+    link.style.display = "none";
 
     const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
     const data = await res.json();
@@ -167,7 +250,8 @@
     const statusData = await res.json();
 
     if (statusData.logs) {
-      document.getElementById("terminal").innerHTML = "";
+      const term = document.getElementById("terminal");
+      term.innerHTML = "";
       statusData.logs.forEach(l => appendLog(l));
     }
 
@@ -178,6 +262,14 @@
     if (statusData.status === "done") {
       clearInterval(pollInterval);
       appendLog("✅ Scrape finished!");
+
+      // reveal the View Results link
+      const link = document.getElementById("resultsLink");
+      link.href = SHEET_URL;
+      link.style.display = "inline-block";
+
+      // add clickable link to terminal
+      appendLinkToLog(SHEET_URL);
     } else if (statusData.status === "error") {
       clearInterval(pollInterval);
       appendLog("❌ Error");
@@ -188,7 +280,6 @@
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
-  
 
   // Initial load
   renderPlayers();

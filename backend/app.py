@@ -1,41 +1,55 @@
+# -*- coding: utf-8 -*-
 import os
 import json
 import threading
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-from valorantFetch import fetch_player_data, load_players as lf_load_players  # keep original too
+# Only import the fetcher (load/save handled here via disk)
+from valorantFetch import fetch_player_data
 
 app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
 CORS(app)
 
-# ----- Single source of truth for players.json -----
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PLAYERS_PATH = os.path.join(BASE_DIR, "players.json")
+# ========= Persistent storage on Render disk =========
+# Attach a Persistent Disk in Render mounted at /data
+# (Dashboard -> your service -> Disks -> Add Disk, mount path /data)
+PLAYERS_PATH = os.environ.get("PLAYERS_PATH", "/data/players.json")
+os.makedirs(os.path.dirname(PLAYERS_PATH), exist_ok=True)
+if not os.path.exists(PLAYERS_PATH):
+    with open(PLAYERS_PATH, "w", encoding="utf-8") as f:
+        json.dump({}, f)
 
-def read_players():
-    try:
-        with open(PLAYERS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        print("[ERROR] read_players:", e, flush=True)
-        return {}
+# Optional: persist last results alongside players.json
+WEEKLY_STATS_PATH = os.path.join(os.path.dirname(PLAYERS_PATH), "weeklyStats.json")
+
+players_lock = threading.Lock()
+
+def read_players() -> dict:
+    with players_lock:
+        try:
+            with open(PLAYERS_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+        except Exception as e:
+            print("[ERROR] read_players:", e, flush=True)
+            return {}
 
 def write_players(players: dict):
-    with open(PLAYERS_PATH, "w", encoding="utf-8") as f:
-        json.dump(players, f, indent=2, ensure_ascii=False)
+    with players_lock:
+        with open(PLAYERS_PATH, "w", encoding="utf-8") as f:
+            json.dump(players, f, indent=2, ensure_ascii=False)
 
-# ========= Progress State ==========
+# ========= Progress State =========
 progress = {"logs": [], "current": 0, "total": 0, "running": False}
 
 def log(msg: str):
     progress["logs"].append(msg)
     print(msg, flush=True)
 
-# ========= Background Scraper ==========
-def run_scraper(players):
+# ========= Background Scraper =========
+def run_scraper(players: dict):
     progress["running"] = True
     progress["logs"] = []
     progress["current"] = 0
@@ -46,39 +60,42 @@ def run_scraper(players):
     for idx, (name, tag) in enumerate(players.items(), 1):
         try:
             log(f"[INFO] Fetching {name}#{tag}...")
-            piece = fetch_player_data({name: tag}, post=False)[0]  # no post here
+            # Fetch ONE player without posting (so we can post once at the end)
+            piece = fetch_player_data({name: tag}, post=False)[0]
             results.append(piece)
             log(f"[OK] Finished {name}#{tag}")
         except Exception as e:
             log(f"[ERROR] {name}#{tag}: {e}")
             results.append({"player": f"{name}#{tag}", "error": str(e)})
         finally:
-            progress["current"] = idx  # <-- moves 1/3, 2/3, 3/3
+            progress["current"] = idx  # moves 1/3, 2/3, ...
 
-    from valorantFetch import send_to_google_apps_script
-    posted = send_to_google_apps_script(results)  # post once for all players
-    log(f"[INFO] Posted weekly stats to Google Sheets: {posted}")
+    # Post ONCE to Google Apps Script with full batch
+    try:
+        from valorantFetch import send_to_google_apps_script
+        posted = send_to_google_apps_script(results)
+        log(f"[INFO] Posted weekly stats to Google Sheets: {posted}")
+    except Exception as e:
+        log(f"[ERROR] Post to Google Sheets failed: {e}")
 
-    with open("weeklyStats.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+    # Save last results on the disk (optional)
+    try:
+        with open(WEEKLY_STATS_PATH, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log(f"[WARN] Could not write weeklyStats.json: {e}")
 
     log("[INFO] Scraper finished.")
     progress["running"] = False
 
-
-
-# ========= API Routes ==========
+# ========= API Routes =========
 @app.route("/")
 def home():
     return send_from_directory(app.static_folder, "home.html")
 
 @app.route("/players", methods=["GET"])
 def get_players():
-    # Prefer our absolute-path reader; if empty, fall back to library loader for compatibility
-    players = read_players()
-    if not players:
-        players = lf_load_players()
-    return jsonify(players)
+    return jsonify(read_players())
 
 @app.route("/add-player", methods=["POST"])
 def add_player():
@@ -103,6 +120,8 @@ def add_player():
 def remove_player():
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
 
     players = read_players()
     if name in players:
@@ -143,15 +162,18 @@ def scraper_status_alias():
     return jsonify({
         "status": state,
         "logs": progress.get("logs", []),
-        "progress": {"current": progress.get("current", 0), "total": progress.get("total", 0)}
+        "progress": {
+            "current": progress.get("current", 0),
+            "total": progress.get("total", 0)
+        }
     })
 
-# ========= Static Files (keep LAST) ==========
-@app.route('/<path:path>', methods=["GET"])
+# ========= Static Files (keep LAST) =========
+@app.route("/<path:path>", methods=["GET"])
 def static_proxy(path):
     return send_from_directory(app.static_folder, path)
 
-# ========= Entrypoint ==========
+# ========= Entrypoint =========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

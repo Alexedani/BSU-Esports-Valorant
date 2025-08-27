@@ -8,7 +8,11 @@ from datetime import datetime, timedelta, timezone
 from dateutil import parser as dateparser
 
 # ========= Config =========
-CONFIG_FILE = "players.json"
+CONFIG_FILE = os.environ.get("PLAYERS_PATH", "/data/players.json")
+WEEKLY_STATS_PATH = os.environ.get(
+    "WEEKLY_STATS_PATH",
+    os.path.join(os.path.dirname(CONFIG_FILE), "weeklyStats.json")
+)
 
 # Google Apps Script Web App (POST endpoint)
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
@@ -300,7 +304,8 @@ def fetch_player_data(players: dict, post=True):
 
     # Save locally for your pipeline
     try:
-        with open("weeklyStats.json", "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(WEEKLY_STATS_PATH), exist_ok=True)
+        with open(WEEKLY_STATS_PATH, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print("[WARN] Could not write weeklyStats.json:", e)

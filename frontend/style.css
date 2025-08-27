@@ -18,36 +18,32 @@ body, html {
   overflow: hidden;
 }
 
-/* Blurred Background */
+/* Blurred Background (for <img class="background">) */
 .background {
-  position: fixed;          /* stays fixed behind everything */
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;             /* full width of viewport */
-  height: 100vh;            /* full height of viewport */
-  background: url("your-background.jpg") no-repeat center center;
-  background-size: cover;   /* scale image to always cover */
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;   /* ensure it covers the viewport */
   filter: blur(8px);
-  z-index: -1;              /* ensure it's behind content */
+  z-index: -1;
 }
 
 /* Logo */
-.logo-container {
-  margin-bottom: 20px;
-}
-.logo {
-  max-width: 150px;
-}
+.logo-container { margin-bottom: 20px; }
+.logo { max-width: 150px; }
 
 /* Card */
 .card {
-  background: #0033A0; /* Boise State blue */
+  position: relative;        /* for help-btn absolute positioning */
+  background: #0033A0;       /* Boise State blue */
   border: 3px solid #D64309; /* Boise State orange */
   border-radius: 15px;
   padding: 25px;
   width: 450px;
-  max-height: 80vh; /* keep card on screen */
-  overflow: hidden; /* keep content inside */
+  max-height: 80vh;          /* keep card on screen */
+  overflow: hidden;          /* keep content inside */
   display: flex;
   flex-direction: column;
 }
@@ -73,9 +69,7 @@ input {
   font-size: 0.9rem;
 }
 
-input::placeholder {
-  color: rgba(255,255,255,0.7);
-}
+input::placeholder { color: rgba(255,255,255,0.7); }
 
 button {
   background: #D64309;
@@ -88,9 +82,7 @@ button {
   transition: 0.3s ease;
 }
 
-button:hover {
-  background: #FF6B35;
-}
+button:hover { background: #FF6B35; }
 
 .scrape-btn {
   margin-top: 15px;
@@ -114,11 +106,14 @@ table {
   font-size: 0.9rem;
 }
 
+/* Tighter rows */
 table th, table td {
-  padding: 6px 4px;
+  padding: 4px 6px;     /* tighter than before */
   text-align: center;
   border-bottom: 1px solid rgba(255,255,255,0.2);
+  line-height: 1.1;
 }
+table tr { height: 28px; }    /* hard cap row height if needed */
 
 .empty-msg {
   text-align: center;
@@ -127,22 +122,28 @@ table th, table td {
 }
 
 /* Remove Button Column */
-.remove-cell {
-  width: 30px;
-}
+.remove-cell { width: 24px; }
 
 .remove-btn {
   background: transparent;
   border: none;
-  font-size: 1rem;
+  color: #D64309;            /* Boise State orange-red */
+  width: 22px;               /* fixed button box */
+  height: 22px;
+  border-radius: 4px;
+  display: inline-flex;      /* center the glyph nicely */
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;        /* slimmer × than emoji */
+  line-height: 1;
   cursor: pointer;
-  color: #D64309; /* Boise State orange-red */
-  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 0;                /* remove extra space */
+  transition: transform 0.2s ease, color 0.2s ease, background 0.2s ease;
 }
-
 .remove-btn:hover {
-  transform: scale(1.2);
-  color: #FF0000; /* bright red */
+  transform: scale(1.1);
+  color: #FF0000;            /* bright red */
+  background: rgba(255,255,255,0.06);
 }
 
 /* Login Card */
@@ -151,11 +152,7 @@ table th, table td {
   padding: 20px;
   text-align: center;
 }
-
-.login-card input {
-  width: 100%;
-  margin-bottom: 10px;
-}
+.login-card input { width: 100%; margin-bottom: 10px; }
 
 /* Terminal box */
 #terminal {
@@ -167,15 +164,115 @@ table th, table td {
   padding: 10px;
   border-radius: 8px;
   width: 450px;
-  max-height: 100px;
-  overflow-y: auto; /* scroll if needed */
+  max-height: 120px; /* a touch taller for comfort */
+  overflow-y: auto;  /* scroll if needed */
   line-height: 1.3em;
   text-align: left;
   white-space: pre-wrap;
   margin-left: auto;
   margin-right: auto;
 }
+#terminal::-webkit-scrollbar { display: none; } /* Chrome */
 
-#terminal::-webkit-scrollbar {
-  display: none; /* Chrome */
+/* Help button (inside card) */
+.help-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #D64309;
+  border: 2px solid #D64309;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 2;
 }
+.help-btn:hover { background: #fff7f2; }
+
+/* Help modal */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;             /* toggled by JS */
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+.help-modal {
+  background: #ffffff;
+  color: #111;
+  border: 3px solid #D64309;
+  border-radius: 12px;
+  width: min(560px, 90vw);
+  max-height: 80vh;
+  overflow: auto;
+}
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+.help-header h3 { color: #0033A0; }
+.help-close {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: #D64309;
+  cursor: pointer;
+}
+.help-body {
+  padding: 16px;
+}
+.help-body a { color: #D64309; text-decoration: underline; }
+.help-body code {
+  background: #f3f3f3;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.help-modal,
+.help-header,
+.help-body {
+  text-align: left;
+}
+
+/* Comfortable typography for long explanations */
+.help-body {
+  line-height: 1.5;
+}
+
+.help-body h3,
+.help-body h4 {
+  margin: 12px 0 6px;
+  color: #0033A0;
+}
+
+.help-body p {
+  margin: 6px 0 12px;
+}
+
+.help-body ol,
+.help-body ul {
+  margin: 6px 0 12px 20px;  /* indent lists */
+  padding-left: 20px;
+}
+
+.help-body li {
+  margin: 4px 0;
+}
+
+.help-body a {
+  color: #D64309;
+  text-decoration: underline;
+}
+
