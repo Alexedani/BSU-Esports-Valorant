@@ -105,6 +105,27 @@ def status():
 def static_proxy(path):
     return send_from_directory(app.static_folder, path)
 
+@app.route("/save-player", methods=["POST"])
+def save_player_alias():
+    # Reuse the existing /add-player logic
+    return add_player()
+
+@app.route("/scraper-status", methods=["GET"])
+def scraper_status_alias():
+    # Shape it as { status, logs, progress } to match the frontend
+    state = (
+        "running" if progress.get("running") else
+        ("done" if progress.get("total", 0) > 0 and progress.get("current", 0) >= progress.get("total", 0) else "idle")
+    )
+    return jsonify({
+        "status": state,
+        "logs": progress.get("logs", []),
+        "progress": {
+            "current": progress.get("current", 0),
+            "total": progress.get("total", 0)
+        }
+    })
+
 # ========= Entrypoint ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
