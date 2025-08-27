@@ -41,12 +41,14 @@ def fetch_rank(name, tag):
     print(f"[OK] Rank fetched: {rank_data}")
     return rank_data
 
+
 # === NEW: driver helper ===
 def make_driver():
+    print("[DEBUG] Creating Chrome driver...")
     options = uc.ChromeOptions()
 
     if os.environ.get("RENDER", "false").lower() == "true":
-        # Headless mode for Render
+        print("[DEBUG] Running in Render: enabling headless options")
         options.headless = True
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
@@ -55,12 +57,15 @@ def make_driver():
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--remote-debugging-port=9222")
     else:
-        # Local development
+        print("[DEBUG] Running locally: launching full browser")
         options.headless = False
 
     options.add_argument("user-agent=Mozilla/5.0")
+    print("[DEBUG] Finished Chrome options setup")
     return uc.Chrome(options=options, use_subprocess=True)
 
+
+# Helper for fetchAgentStats
 def get_stat_value(row, label_text):
     for block in row.select(".trn-match-row__block"):
         label = block.select_one(".trn-match-row__text-label")
@@ -108,58 +113,60 @@ def _wait_for_progress(driver, before_rows, max_wait=15.0, idle_grace=1.5):
 
 def fetch_agent_stats(name, tag):
     print(f"[INFO] Starting scraper for {name}#{tag}")
-    driver = make_driver()
-
+    driver = None
     try:
+        driver = make_driver()
+        print("[DEBUG] Driver created successfully")
+
         safe_name = urllib.parse.quote(name)
         safe_tag = urllib.parse.quote(tag)
         url = f"https://tracker.gg/valorant/profile/riot/{safe_name}%23{safe_tag}/matches?platform=pc&playlist=competitive"
         print(f"[INFO] Opening URL: {url}")
 
         driver.get(url)
-        time.sleep(3)
+        print("[DEBUG] Page requested, waiting for rows...")
 
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, ".trn-match-row"))
         )
         print("[OK] Match rows detected")
 
-        cutoff = datetime.now() - timedelta(days=7)
+        # Click “Load More” up to 5 times
+        max_clicks, clicks = 5, 0
+        while clicks < max_clicks:
+            try:
+                xpath = "//button[span[normalize-space()='Load More']]"
+                before_rows = _rows_count(driver)
+                print(f"[DEBUG] Before click {clicks+1}: {before_rows} rows")
+
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                _time.sleep(0.6)
+
+                btn = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, xpath))
+                )
+                driver.execute_script("arguments[0].click();", btn)
+
+                _wait_button_ready_or_stale(driver, btn, timeout=8)
+                progressed, after_rows = _wait_for_progress(driver, before_rows)
+                print(f"[DEBUG] After click {clicks+1}: {after_rows} rows")
+
+                if not progressed:
+                    print("[INFO] No new rows loaded, stopping")
+                    break
+
+                clicks += 1
+            except TimeoutException:
+                print("[INFO] No more 'Load More' button found — stopping")
+                break
+
         soup = BeautifulSoup(driver.page_source, "html.parser")
         aggregated = {}
         seen_match_ids = set()
-
         all_rows = soup.select("div.trn-match-row")
-        print(f"[INFO] Total .trn-match-row elements found: {len(all_rows)}")
+        print(f"[INFO] Total rows parsed: {len(all_rows)}")
 
         for idx, row in enumerate(all_rows):
-            link = row.select_one("a[href*='/match/']")
-            match_id = None
-            if link and link.get("href"):
-                match_id = link.get("href").rstrip("/").split("/")[-1].strip()
-            if not match_id:
-                match_id = f"hash:{hash(row.get_text(' ', strip=True)[:300])}"
-            if match_id in seen_match_ids:
-                continue
-            seen_match_ids.add(match_id)
-
-            header = row.find_previous("div", class_="trn-match-header")
-            if not header:
-                continue
-
-            header_text = header.get_text(" ", strip=True)
-            parts = header_text.split()
-            if len(parts) < 2:
-                continue
-
-            try:
-                game_date = datetime.strptime(" ".join(parts[:2]) + f" {datetime.now().year}", "%b %d %Y")
-            except:
-                continue
-
-            if game_date < cutoff:
-                continue
-
             agent_el = row.select_one(".vmr-agent img")
             if not agent_el:
                 continue
@@ -167,11 +174,8 @@ def fetch_agent_stats(name, tag):
 
             classes = row.get("class") or []
             win = any(cls.endswith("--outcome-win") for cls in classes)
-
             kd_val = get_stat_value(row, "K/D")
-            adr_val = get_stat_value(row, "ADR")
-            if adr_val is None:
-                adr_val = get_stat_value(row, "Avg Damage/Round")
+            adr_val = get_stat_value(row, "ADR") or get_stat_value(row, "Avg Damage/Round")
 
             if agent_name not in aggregated:
                 aggregated[agent_name] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
@@ -191,11 +195,16 @@ def fetch_agent_stats(name, tag):
             stats["winRate"] = (stats["wins"] / games) * 100
             del stats["totalADR"], stats["totalKD"], stats["wins"]
 
-        print(f"\n[OK] Aggregated stats for {name}#{tag}: {aggregated}")
+        print(f"[OK] Aggregated stats for {name}#{tag}: {aggregated}")
         return aggregated
 
+    except Exception as e:
+        print(f"[ERROR] Exception in fetch_agent_stats for {name}#{tag}: {str(e)}")
+        return {}
     finally:
-        driver.quit()
+        if driver:
+            print("[DEBUG] Quitting driver")
+            driver.quit()
 
 def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeout: int = 20) -> bool:
     try:
@@ -234,11 +243,12 @@ def fetch_player_data(players: dict):
 
     posted = send_to_google_apps_script(results)
     print("[INFO] Posted weekly stats to Google Sheets:", posted)
-
     return results
 
+
 if __name__ == "__main__":
-    players = {  # test locally
+    players = {
         "master": "bsu"
     }
     fetch_player_data(players)
+
