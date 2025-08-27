@@ -271,47 +271,19 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
 
 # ========= Orchestrator =========
 def fetch_player_data(players: dict, post=True):
-    """
-    Build a list of player result dicts.
-    Never throws for a single bad player; it records an 'error' field instead.
-    If post=True, POST the whole list to Google Apps Script once.
-    """
     results = []
-
     for name, tag in players.items():
-        entry = {"player": f"{name}#{tag}"}  # pre-create so we can safely append even on error
-        try:
-            rk = fetch_rank(name, tag)                     # <- rank local var
-            ag = fetch_agent_stats(name, tag)              # <- agents local var
-            entry["rank"] = rk
-            entry["agents"] = ag
-        except Exception as e:
-            # Capture the error for this player but keep going
-            err = f"{type(e).__name__}: {e}"
-            print(f"[ERROR] Failed for {name}#{tag}: {err}")
-            entry["error"] = err
-            # Optional: include partials if either call succeeded before failing
-            if "rank" not in entry:
-                entry["rank"] = None
-            if "agents" not in entry:
-                entry["agents"] = {}
+        # ... build each player's result ...
+        results.append({"player": f"{name}#{tag}", "rank": rank, "agents": agents})
 
-        results.append(entry)
+    with open("weeklyStats.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
 
-    # Save locally for your pipeline
-    try:
-        with open("weeklyStats.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print("[WARN] Could not write weeklyStats.json:", e)
-
-    # Post once with the whole batch
     if post:
         posted = send_to_google_apps_script(results)
         print("[INFO] Posted weekly stats to Google Sheets:", posted)
 
     return results
-
 
 
 # ========= Local run =========
