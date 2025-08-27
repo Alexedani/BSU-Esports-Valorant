@@ -47,8 +47,6 @@
 
     <!-- Run Scraper -->
     <button class="scrape-btn" onclick="runScraper()">Run Script</button>
-    <!-- Hidden until scrape finishes -->
-    <a id="resultsLink" href="#" target="_blank" rel="noopener" style="display:none; margin-top:8px; display:inline-block;">View Results</a>
   </div>
 
   <!-- Terminal box OUTSIDE card -->
@@ -68,24 +66,39 @@
         <h4>How to use it</h4>
         <ol>
           <li>Add players by name + tag (e.g., <code>master</code> / <code>bsu</code>).</li>
-          <li>Click <strong>Run Scrape Now</strong> and watch the terminal.</li>
+          <li>Click <strong>Run Script</strong> and watch the terminal.</li>
           <li>When done, click <strong>View Results</strong> to open the sheet.</li>
         </ol>
 
         <h4>Where are results?</h4>
-        <p>
+        <p> Results are stored in this 
           <a href="https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0" target="_blank" rel="noopener">
-            Open the Google Sheet
+            Google Sheet
           </a>
+          .
         </p>
+        <p>The generated sheet will be named whatever the current date is</p>
+        <p>Please don't share this sheet with anyone.</p>
 
         <h4>Need help?</h4>
-        <p>Contact the site admin.</p>
+        <p>If there are any issues, DM me on discord or email me</p>
+        <p>Email: alexanderdaniluc@u.boisestate.edu</p>
+        <p>Discord: ".turbostar"</p>
 
-        <h4>Notes</h4>
+
+        <h4>Misc Notes</h4>
         <ul>
-          <li>You can scroll the terminal to view recent logs.</li>
-          <li>The tracked players table persists on the server; it may reset on app updates.</li>
+          <li>You can scroll in the terminal to view all the logs.</li>
+
+        </ul>
+
+        <h4>Features I plan/want to add:</h4>
+        <ul>
+          <li>Configure to run automatically (e.g. once a week)</li>
+          <li>Way to add players much quicker via a file upload with the player names</li>
+          <li>Dashboard built into the site for viewing player results instead of google sheet</li>
+          <li>Expand tracking/scouting to opponents.</li>
+          <li>Could expand this to include Rocket leauge and overwatch all in one tool/webapp?</li>
         </ul>
       </div>
     </div>
@@ -119,6 +132,7 @@
     a.target = "_blank";
     a.rel = "noopener";
     a.textContent = text;
+    a.style.color = "#fff"; // make link white in terminal
     line.appendChild(a);
     term.appendChild(line);
     prune(term);
@@ -227,10 +241,6 @@
     document.getElementById("terminal").innerHTML = "";
     appendLog("▶ Starting scrape...");
 
-    // hide results link until done
-    const link = document.getElementById("resultsLink");
-    link.style.display = "none";
-
     const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
     const data = await res.json();
 
@@ -262,12 +272,6 @@
     if (statusData.status === "done") {
       clearInterval(pollInterval);
       appendLog("✅ Scrape finished!");
-
-      // reveal the View Results link
-      const link = document.getElementById("resultsLink");
-      link.href = SHEET_URL;
-      link.style.display = "inline-block";
-
       // add clickable link to terminal
       appendLinkToLog(SHEET_URL);
     } else if (statusData.status === "error") {
@@ -284,5 +288,6 @@
   // Initial load
   renderPlayers();
 </script>
+
 </body>
 </html>
