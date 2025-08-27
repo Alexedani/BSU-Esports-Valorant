@@ -1,7 +1,5 @@
-flask
+Flask
 flask-cors
 gunicorn
-selenium
-beautifulsoup4
-undetected-chromedriver
 requests
+python-dateutil
