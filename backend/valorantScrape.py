@@ -332,10 +332,8 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
             print("[ERROR] RequestException:", str(e))
         return False
 
-def fetch_player_data():
+def fetch_player_data(players: dict):
     results = []
-    players = load_players()  # dict
-
     for name, tag in players.items():
         try:
             rank = fetch_rank(name, tag)
@@ -345,6 +343,7 @@ def fetch_player_data():
         except Exception as e:
             print(f"[ERROR] Failed for {name}#{tag}: {str(e)}")
 
+    # save a copy
     with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
@@ -352,6 +351,7 @@ def fetch_player_data():
     print("[INFO] Posted weekly stats to Google Sheets:", posted)
 
     return results
+
 
 
 
