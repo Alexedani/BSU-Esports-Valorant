@@ -157,18 +157,19 @@ table th, table td {
   margin-bottom: 10px;
 }
 
-/* Terminal box */
-#terminal {
-  background: black;
-  color: #00ff00; 
+.terminal {
+  background: #111;
+  color: #0f0;
   font-family: monospace;
+  font-size: 0.85rem;
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 6px;
+  width: 450px;       /* match card width */
+  height: 100px;      /* ~4 lines tall */
+  overflow-y: auto;   /* allow scroll if overflow */
   text-align: left;
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 8px;
-  max-height: 100px; /* ~4 lines */
-  overflow-y: auto;
-  scrollbar-width: none;  
+  white-space: pre-wrap;
 }
 #terminal::-webkit-scrollbar {
   display: none; /* Chrome */

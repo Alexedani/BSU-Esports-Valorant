@@ -7,14 +7,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
+  <!-- Background -->
   <img src="esports-arena.webp" alt="Valorant Background" class="background">
 
-
+  <!-- Logo -->
   <div class="logo-container">
     <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo">
   </div>
 
+  <!-- Card -->
   <div class="card">
     <h1>Valorant Ranked Tracking</h1>
 
@@ -35,47 +36,63 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Added players shows here -->
+          <!-- Added players will show here -->
         </tbody>
       </table>
     </div>
 
     <button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
-    <!-- <p class="scrape-status">Idle</p> -->
-
-    <!--terminal -->
-    <div id="terminal"></div>
   </div>
 
+  <!-- Terminal (outside card, centered below) -->
+  <div id="terminal" class="terminal"></div>
+
 <script>
-  const API_BASE = "https://bsu-esports-valorant.onrender.com";
+  const BASE_URL = "https://bsu-esports-valorant.onrender.com"; 
 
   // ---------------- Players ----------------
   async function addPlayer() {
     const name = document.getElementById("playerName").value.trim();
     const tag = document.getElementById("playerTag").value.trim();
-    if (!name || !tag) return alert("Enter both name and tag!");
+    if (!name || !tag) {
+      return alert("Enter both name and tag!");
+    }
 
-    await fetch(`${API_BASE}/players`, {
+    const res = await fetch(`${BASE_URL}/save-player`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, tag })
     });
 
-    renderPlayers();
+    if (res.ok) {
+      await renderPlayers();
+      document.getElementById("playerName").value = "";
+      document.getElementById("playerTag").value = "";
+    } else {
+      alert("Error adding player");
+    }
   }
 
   async function removePlayer(name) {
-    await fetch(`${API_BASE}/players/${encodeURIComponent(name)}`, { method: "DELETE" });
-    renderPlayers();
+    const res = await fetch(`${BASE_URL}/remove-player`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+
+    if (res.ok) {
+      await renderPlayers();
+    } else {
+      alert("Error removing player");
+    }
   }
 
   async function renderPlayers() {
-    const res = await fetch(`${API_BASE}/players`);
-    const players = await res.json();
-
     const tbody = document.querySelector("#playersTable tbody");
     tbody.innerHTML = "";
+
+    const res = await fetch(`${BASE_URL}/players`);
+    const players = await res.json();
 
     const names = Object.keys(players);
     if (names.length === 0) {
@@ -83,11 +100,12 @@
       return;
     }
 
-    names.forEach(name => {
+    names.forEach((name) => {
+      const tag = players[name];
       const row = `
         <tr>
           <td>${name}</td>
-          <td>${players[name]}</td>
+          <td>${tag}</td>
           <td class="remove-cell">
             <button class="remove-btn" onclick="removePlayer('${name}')">❌</button>
           </td>
@@ -96,41 +114,39 @@
     });
   }
 
-  // ---------------- Scraper ----------------
-  let pollInterval;
-
+  // ---------------- Terminal + Scraper ----------------
   function appendLog(msg) {
     const term = document.getElementById("terminal");
     const line = document.createElement("div");
     line.textContent = msg;
     term.appendChild(line);
-    // keep only last 20 lines
+
+    // keep last 20 lines
     if (term.childNodes.length > 20) term.removeChild(term.firstChild);
     term.scrollTop = term.scrollHeight;
   }
 
+  let pollInterval;
+
   async function runScraper() {
-    document.querySelector(".scrape-status").innerText = "Starting scrape...";
     document.getElementById("terminal").innerHTML = "";
     appendLog("▶ Starting scrape...");
 
-    const res = await fetch(`${API_BASE}/run-scraper`, { method: "POST" });
+    const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
     const data = await res.json();
 
     if (data.error) {
-      document.querySelector(".scrape-status").innerText = "Error: " + data.error;
       appendLog("❌ " + data.error);
       return;
     }
 
-    document.querySelector(".scrape-status").innerText = "Scraping in progress...";
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(checkStatus, 5000);
     checkStatus();
   }
 
   async function checkStatus() {
-    const res = await fetch(`${API_BASE}/scraper-status`);
+    const res = await fetch(`${BASE_URL}/scraper-status`);
     const statusData = await res.json();
 
     if (statusData.logs) {
@@ -139,25 +155,23 @@
     }
 
     if (statusData.progress) {
-      document.querySelector(".scrape-status").innerText =
-        `Scraping in progress... ${statusData.progress.current}/${statusData.progress.total}`;
+      appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total}`);
     }
 
     if (statusData.status === "done") {
       clearInterval(pollInterval);
-      document.querySelector(".scrape-status").innerText = "✅ Scrape finished!";
       appendLog("✅ Done!");
     } else if (statusData.status === "error") {
       clearInterval(pollInterval);
-      document.querySelector(".scrape-status").innerText = "❌ Error";
       appendLog("❌ Error");
     }
   }
 
-  renderPlayers();
+  // ---------------- Init ----------------
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
+  renderPlayers();
 </script>
 </body>
 </html>
