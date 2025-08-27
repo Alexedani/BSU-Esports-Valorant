@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Valorant Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Background -->
+<img src="esports-arena.webp" alt="Valorant Background" class="background">
+
+  <!-- Logo -->
+  <div class="logo-container">
+    <img src="bsu-logo-esports.webp" alt="Boise State Esports Logo" class="logo">
+  </div>
+
+  <!-- Login Card -->
+  <div class="card login-card">
+    <h1>Login</h1>
+    <input type="password" id="password" placeholder="Enter Password">
+    <button onclick="checkPassword()">Login</button>
+  </div>
+
+<script>
+  function checkPassword() {
+    const input = document.getElementById("password").value;
+    const correctPassword = "bsu2025"; // <-- change to your actual password
+
+    if (input === correctPassword) {
+      localStorage.setItem("loggedIn", "true"); // set login flag
+      window.location.href = "home.html";
+    } else {
+      alert("Incorrect password. Try again.");
+    }
+  }
+</script>
+  </script>
+</body>
+</html>
