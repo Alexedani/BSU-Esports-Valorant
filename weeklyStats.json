@@ -4,14 +4,14 @@
     "rank": {
       "currenttier": "Immortal 1",
       "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/24/largeicon.png",
-      "rr": 19
+      "rr": 37
     },
     "agents": {
       "Clove": {
-        "games": 32,
-        "avgADR": 163.5,
-        "avgKD": 1.1000000000000005,
-        "winRate": 46.875
+        "games": 33,
+        "avgADR": 164.4848484848485,
+        "avgKD": 1.1060606060606064,
+        "winRate": 48.484848484848484
       },
       "Fade": {
         "games": 3,

@@ -10,6 +10,7 @@ import time
 import requests
 import json
 from datetime import datetime, timedelta
+import os
 
 #TODO: Write docs about this file
 #How they can understand this script
@@ -17,9 +18,13 @@ from datetime import datetime, timedelta
 #Look into henrick dev api which is accurate
 
 
-players = {
-    "愛青空": "skies"
-}
+CONFIG_FILE = "players.json"
+
+def load_players():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)  # dict of {name: tag}
+    return {}
 
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
 BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr"
@@ -329,6 +334,8 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
 
 def fetch_player_data():
     results = []
+    players = load_players()  # dict
+
     for name, tag in players.items():
         try:
             rank = fetch_rank(name, tag)
@@ -344,7 +351,8 @@ def fetch_player_data():
     posted = send_to_google_apps_script(results)
     print("[INFO] Posted weekly stats to Google Sheets:", posted)
 
-    return results  # <-- added return so Flask can send results back
+    return results
+
 
 
 if __name__ == "__main__":

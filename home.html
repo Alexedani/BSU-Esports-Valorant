@@ -42,61 +42,92 @@
       </table>
     </div>
 
-    <button class="scrape-btn">Run Scrape Now</button>
+<button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
   </div>
 
-  <script>
-    // Add Player
-    function addPlayer() {
-      const name = document.getElementById("playerName").value.trim();
-      const tag = document.getElementById("playerTag").value.trim();
-      if (!name || !tag) return alert("Enter both name and tag!");
+<script>
+  const BASE_URL = "https://your-render-service.onrender.com"; // <-- replace with your Render backend URL
 
-      let players = JSON.parse(localStorage.getItem("players")) || [];
-      players.push({ name, tag });
-      localStorage.setItem("players", JSON.stringify(players));
-      renderPlayers();
+  // --- Add Player ---
+  function addPlayer() {
+    const name = document.getElementById("playerName").value.trim();
+    const tag = document.getElementById("playerTag").value.trim();
+    if (!name || !tag) return alert("Enter both name and tag!");
+
+    fetch(`${BASE_URL}/save-player`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, tag })
+    })
+      .then(res => res.json())
+      .then(players => renderPlayers(players))
+      .catch(err => console.error("Error saving player:", err));
+  }
+
+  // --- Remove Player ---
+  function removePlayer(name) {
+    fetch(`${BASE_URL}/remove-player`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    })
+      .then(res => res.json())
+      .then(players => renderPlayers(players))
+      .catch(err => console.error("Error removing player:", err));
+  }
+
+  // --- Render Players Table ---
+  function renderPlayers(players) {
+    const tbody = document.querySelector("#playersTable tbody");
+    tbody.innerHTML = "";
+
+    const entries = Object.entries(players); // [ [name, tag], [name, tag], ... ]
+
+    if (entries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
+      return;
     }
 
-    // Remove Player
-    function removePlayer(index) {
-      let players = JSON.parse(localStorage.getItem("players")) || [];
-      players.splice(index, 1); // remove at index
-      localStorage.setItem("players", JSON.stringify(players));
-      renderPlayers();
-    }
+    entries.forEach(([name, tag]) => {
+      const row = `
+        <tr>
+          <td>${name}</td>
+          <td>${tag}</td>
+          <td class="remove-cell">
+            <button class="remove-btn" onclick="removePlayer('${name}')">❌</button>
+          </td>
+        </tr>`;
+      tbody.innerHTML += row;
+    });
+  }
 
-    // Render Players Table
-    function renderPlayers() {
-      const tbody = document.querySelector("#playersTable tbody");
-      tbody.innerHTML = "";
-      const players = JSON.parse(localStorage.getItem("players")) || [];
+  // --- Load Players on Page Load ---
+  function loadPlayers() {
+    fetch(`${BASE_URL}/players`)
+      .then(res => res.json())
+      .then(players => renderPlayers(players))
+      .catch(err => console.error("Error loading players:", err));
+  }
 
-      if (players.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
-        return;
-      }
+  // --- Run Scraper ---
+  function runScraper() {
+    fetch(`${BASE_URL}/run-scraper`, { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Scraper results:", data);
+        alert("Scraper finished! Check Google Sheets or console for results.");
+      })
+      .catch(err => console.error("Error running scraper:", err));
+  }
 
-      players.forEach((p, index) => {
-        const row = `
-          <tr>
-            <td>${p.name}</td>
-            <td>${p.tag}</td>
-            <td class="remove-cell">
-              <button class="remove-btn" onclick="removePlayer(${index})">❌</button>
-            </td>
-          </tr>`;
-        tbody.innerHTML += row;
-      });
-    }
-
-    // Load on page refresh
-    renderPlayers();
-
-      // Redirect if not logged in
+  // --- Auth Check ---
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
+  } else {
+    loadPlayers();
   }
-  </script>
+</script>
+
+
 </body>
 </html>

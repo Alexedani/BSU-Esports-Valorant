@@ -1,0 +1,6 @@
+flask
+gunicorn
+selenium
+beautifulsoup4
+undetected-chromedriver
+requests
