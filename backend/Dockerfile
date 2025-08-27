@@ -1,7 +1,7 @@
-# Base image
+# Base Python image
 FROM python:3.10-slim
 
-# Install dependencies for Chrome + Xvfb
+# Install system dependencies for Chrome + Xvfb
 RUN apt-get update && apt-get install -y \
     wget gnupg unzip curl xvfb \
     && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
@@ -9,18 +9,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get update && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
+# Working directory
 WORKDIR /app
 
-# Copy dependencies first
+# Copy dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app code
 COPY . .
 
-# Expose port (Render will override with its own, but we declare it anyway)
+# Expose port (Render will override this with $PORT)
 EXPOSE 5000
 
-# Run app with Xvfb + Gunicorn bound to Render's $PORT
-CMD ["sh", "-c", "xvfb-run -a gunicorn -b 0.0.0.0:${PORT} app:app"]
+# Start app with xvfb-run so Chrome has a fake display
+CMD ["sh", "-c", "xvfb-run -a gunicorn --bind 0.0.0.0:${PORT:-5000} app:app"]
