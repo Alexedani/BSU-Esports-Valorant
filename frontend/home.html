@@ -43,56 +43,41 @@
     </div>
 
 <button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
+<p class="scrape-status">Idle</p>
+
   </div>
 
 <script>
-  const BASE_URL = "https://bsu-esports-valorant.onrender.com"; // your Render backend
+  const API_BASE = "https://bsu-esports-valorant.onrender.com"; // <-- your backend Render URL
 
-  // Add Player
+  // ---------------- Players ----------------
   async function addPlayer() {
     const name = document.getElementById("playerName").value.trim();
     const tag = document.getElementById("playerTag").value.trim();
-    if (!name || !tag) {
-      return alert("Enter both name and tag!");
-    }
+    if (!name || !tag) return alert("Enter both name and tag!");
 
-    const res = await fetch(`${BASE_URL}/save-player`, {
+    await fetch(`${API_BASE}/players`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, tag })
     });
 
-    if (res.ok) {
-      await renderPlayers();
-      document.getElementById("playerName").value = "";
-      document.getElementById("playerTag").value = "";
-    } else {
-      alert("Error adding player");
-    }
+    renderPlayers();
   }
 
-  // Remove Player
   async function removePlayer(name) {
-    const res = await fetch(`${BASE_URL}/remove-player`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name })
+    await fetch(`${API_BASE}/players/${encodeURIComponent(name)}`, {
+      method: "DELETE"
     });
-
-    if (res.ok) {
-      await renderPlayers();
-    } else {
-      alert("Error removing player");
-    }
+    renderPlayers();
   }
 
-  // Render Players Table
   async function renderPlayers() {
+    const res = await fetch(`${API_BASE}/players`);
+    const players = await res.json();
+
     const tbody = document.querySelector("#playersTable tbody");
     tbody.innerHTML = "";
-
-    const res = await fetch(`${BASE_URL}/players`);
-    const players = await res.json();
 
     const names = Object.keys(players);
     if (names.length === 0) {
@@ -100,12 +85,11 @@
       return;
     }
 
-    names.forEach((name) => {
-      const tag = players[name];
+    names.forEach(name => {
       const row = `
         <tr>
           <td>${name}</td>
-          <td>${tag}</td>
+          <td>${players[name]}</td>
           <td class="remove-cell">
             <button class="remove-btn" onclick="removePlayer('${name}')">❌</button>
           </td>
@@ -114,33 +98,54 @@
     });
   }
 
-  // Run Scraper
-  async function runScraper() {
-    const btn = document.querySelector(".scrape-btn");
-    btn.disabled = true;
-    btn.innerText = "Running scrape...";
+  // ---------------- Scraper ----------------
+  let pollInterval;
 
-    const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
-    if (res.ok) {
-      const data = await res.json();
-      console.log("Scraper results:", data);
-      alert("Scrape finished! Check console for results.");
-    } else {
-      alert("Scrape failed.");
+  async function runScraper() {
+    document.querySelector(".scrape-status").innerText = "Starting scrape...";
+    const res = await fetch(`${API_BASE}/run-scraper`, { method: "POST" });
+    const data = await res.json();
+
+    if (data.error) {
+      document.querySelector(".scrape-status").innerText = "Error: " + data.error;
+      return;
     }
 
-    btn.disabled = false;
-    btn.innerText = "Run Scrape Now";
+    document.querySelector(".scrape-status").innerText = "Scraping in progress...";
+
+    // start polling status every 10s
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(checkStatus, 10000);
+    checkStatus(); // run immediately too
   }
 
-  // Redirect if not logged in
+  async function checkStatus() {
+    const res = await fetch(`${API_BASE}/scraper-status`);
+    const statusData = await res.json();
+
+    if (statusData.status === "running") {
+      document.querySelector(".scrape-status").innerText = "Scraping in progress...";
+    } else if (statusData.status === "done") {
+      clearInterval(pollInterval);
+      document.querySelector(".scrape-status").innerText = "✅ Scrape finished!";
+      console.log("Scrape results:", statusData.results);
+
+      // OPTIONAL: display results nicely
+      alert("Scrape finished! Check console for results.");
+    } else if (statusData.status === "error") {
+      clearInterval(pollInterval);
+      document.querySelector(".scrape-status").innerText = "❌ Error: " + (statusData.results?.message || "");
+    } else {
+      document.querySelector(".scrape-status").innerText = "Idle";
+    }
+  }
+
+  renderPlayers();
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
-
-  // Initial load
-  renderPlayers();
 </script>
+
 
 
 
