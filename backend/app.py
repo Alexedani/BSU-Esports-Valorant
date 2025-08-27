@@ -4,7 +4,7 @@ import json
 import threading
 import os
 
-from valorantScrape import fetch_player_data  #scraper
+from valorantFetch import fetch_player_data  #scraper
 
 app = Flask(__name__)
 CORS(app)
