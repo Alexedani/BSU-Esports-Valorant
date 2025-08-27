@@ -8,82 +8,58 @@
     },
     "agents": {
       "Jett": {
-        "games": 16,
-        "avgADR": 157.5625,
-        "avgKD": 1.1375,
-        "winRate": 56.25
+        "games": 10,
+        "avgADR": 222.67159155653016,
+        "avgKD": 1.1641392276454197,
+        "winRate": 50.0
       },
       "Raze": {
-        "games": 10,
-        "avgADR": 167.7,
-        "avgKD": 1.16,
-        "winRate": 30.0
+        "games": 8,
+        "avgADR": 220.38445328713522,
+        "avgKD": 1.122017973856209,
+        "winRate": 25.0
       },
       "Yoru": {
         "games": 4,
-        "avgADR": 163.5,
-        "avgKD": 1.125,
+        "avgADR": 205.89116438555834,
+        "avgKD": 1.1366013071895424,
         "winRate": 75.0
       },
       "Fade": {
-        "games": 7,
-        "avgADR": 159.57142857142858,
-        "avgKD": 1.0999999999999999,
-        "winRate": 57.14285714285714
+        "games": 3,
+        "avgADR": 224.43262441647093,
+        "avgKD": 1.05,
+        "winRate": 66.66666666666666
       },
       "Clove": {
-        "games": 28,
-        "avgADR": 174.85714285714286,
-        "avgKD": 1.0785714285714285,
-        "winRate": 39.285714285714285
+        "games": 10,
+        "avgADR": 253.741700217532,
+        "avgKD": 1.1233533868092693,
+        "winRate": 30.0
       },
       "Sova": {
-        "games": 8,
-        "avgADR": 153.75,
-        "avgKD": 1.1625,
-        "winRate": 62.5
+        "games": 2,
+        "avgADR": 183.28820611559755,
+        "avgKD": 1.125,
+        "winRate": 100.0
       },
       "Reyna": {
-        "games": 12,
-        "avgADR": 177.33333333333334,
-        "avgKD": 1.3916666666666666,
-        "winRate": 58.333333333333336
-      },
-      "Cypher": {
-        "games": 12,
-        "avgADR": 144.0,
-        "avgKD": 1.05,
-        "winRate": 33.33333333333333
-      },
-      "Killjoy": {
-        "games": 6,
-        "avgADR": 152.33333333333334,
-        "avgKD": 0.9666666666666667,
-        "winRate": 16.666666666666664
-      },
-      "Chamber": {
-        "games": 8,
-        "avgADR": 144.875,
-        "avgKD": 1.2125000000000004,
-        "winRate": 62.5
-      },
-      "Neon": {
         "games": 5,
-        "avgADR": 117.8,
-        "avgKD": 0.8800000000000001,
+        "avgADR": 227.80334351457213,
+        "avgKD": 1.2319202898550725,
         "winRate": 40.0
       },
-      "Viper": {
+      "Cypher": {
         "games": 2,
-        "avgADR": 150.0,
-        "avgKD": 1.05,
+        "avgADR": 175.59836992104903,
+        "avgKD": 0.8809523809523809,
         "winRate": 0.0
       },
-      "Skye": {
-        "games": 2,
-        "avgADR": 144.5,
-        "avgKD": 1.1,
-        "winRate": 100.0
+      "Killjoy": {
+        "games": 1,
+        "avgADR": 170.4381596908465,
+        "avgKD": 0.6,
+        "winRate": 0.0
       }
     }
   }

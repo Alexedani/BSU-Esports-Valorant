@@ -156,3 +156,20 @@ table th, table td {
   width: 100%;
   margin-bottom: 10px;
 }
+
+/* Terminal box */
+#terminal {
+  background: black;
+  color: #00ff00; 
+  font-family: monospace;
+  text-align: left;
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  max-height: 100px; /* ~4 lines */
+  overflow-y: auto;
+  scrollbar-width: none;  
+}
+#terminal::-webkit-scrollbar {
+  display: none; /* Chrome */
+}

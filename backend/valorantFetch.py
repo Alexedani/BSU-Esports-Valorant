@@ -39,7 +39,8 @@ def fetch_rank(name, tag):
 def fetch_agent_stats(name, tag):
     print(f"[INFO] Fetching match history for {name}#{tag}")
     headers = {"Authorization": API_KEY}
-    cutoff = datetime.now(datetime.utcnow().astimezone().tzinfo) - timedelta(days=7)
+    now = datetime.now(datetime.utcnow().astimezone().tzinfo)
+    cutoff = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     aggregated = {}
     start = 0

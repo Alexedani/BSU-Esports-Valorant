@@ -16,5 +16,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Run gunicorn server
-CMD ["gunicorn", "-b", "0.0.0.0:${PORT:-5000}", "app:app"]
+# Run gunicorn server (shell form so $PORT expands)
+CMD gunicorn -b 0.0.0.0:${PORT:-5000} app:app

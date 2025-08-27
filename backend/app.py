@@ -1,43 +1,111 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import json
 import os
+import json
+import threading
+from flask import Flask, jsonify, request, send_from_directory, render_template
+from flask_cors import CORS
 
-from valorantFetch import fetch_player_data  # ✅ updated import
+from valorantFetch import fetch_player_data, load_players
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
 CORS(app)
 
-CONFIG_FILE = "players.json"
+# ========= Progress State ==========
+progress = {
+    "logs": [],
+    "current": 0,
+    "total": 0,
+    "running": False
+}
 
-def load_players():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+def log(msg: str):
+    """Log to memory + stdout"""
+    progress["logs"].append(msg)
+    print(msg, flush=True)
 
-def save_players(players):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(players, f, indent=2, ensure_ascii=False)
+# ========= Background Scraper ==========
+def run_scraper(players):
+    progress["running"] = True
+    progress["logs"] = []
+    progress["current"] = 0
+    progress["total"] = len(players)
+
+    log(f"[INFO] Starting scrape for {len(players)} players...")
+
+    results = []
+    for idx, (name, tag) in enumerate(players.items(), 1):
+        try:
+            log(f"[INFO] Fetching {name}#{tag}...")
+            player_data = fetch_player_data({name: tag})[0]
+            results.append(player_data)
+            log(f"[OK] Finished {name}#{tag}")
+        except Exception as e:
+            log(f"[ERROR] {name}#{tag}: {e}")
+        progress["current"] = idx
+
+    # Save last results
+    with open("weeklyStats.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    log("[INFO] Scraper finished.")
+    progress["running"] = False
+
+# ========= API Routes ==========
+
+@app.route("/")
+def home():
+    # serve frontend home.html
+    return send_from_directory(app.static_folder, "home.html")
 
 @app.route("/players", methods=["GET"])
 def get_players():
     return jsonify(load_players())
 
-@app.route("/players", methods=["POST"])
+@app.route("/add-player", methods=["POST"])
 def add_player():
-    data = request.get_json()
+    data = request.json
+    name, tag = data.get("name"), data.get("tag")
     players = load_players()
-    players[data["name"]] = data["tag"]
-    save_players(players)
-    return jsonify({"status": "success"})
+    players[name] = tag
+    with open("players.json", "w", encoding="utf-8") as f:
+        json.dump(players, f, indent=2, ensure_ascii=False)
+    log(f"[INFO] Added player {name}#{tag}")
+    return jsonify(players)
+
+@app.route("/remove-player", methods=["POST"])
+def remove_player():
+    data = request.json
+    name = data.get("name")
+    players = load_players()
+    if name in players:
+        del players[name]
+        with open("players.json", "w", encoding="utf-8") as f:
+            json.dump(players, f, indent=2, ensure_ascii=False)
+        log(f"[INFO] Removed player {name}")
+    return jsonify(players)
 
 @app.route("/run-scraper", methods=["POST"])
-def run_scraper():
+def run_scraper_endpoint():
     players = load_players()
-    results = fetch_player_data(players)   # ✅ calls new API-based script
-    return jsonify(results)
+    if not players:
+        return jsonify({"error": "No players to scrape"}), 400
 
+    if progress["running"]:
+        return jsonify({"error": "Scraper already running"}), 400
+
+    thread = threading.Thread(target=run_scraper, args=(players,))
+    thread.start()
+    return jsonify({"status": "started", "total": len(players)})
+
+@app.route("/status", methods=["GET"])
+def status():
+    return jsonify(progress)
+
+# ========= Static Files ==========
+@app.route('/<path:path>')
+def static_proxy(path):
+    return send_from_directory(app.static_folder, path)
+
+# ========= Entrypoint ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)

@@ -7,16 +7,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Background image -->
-    <img src="esports-arena.webp" alt="Valorant Background" class="background">
+
+  <img src="esports-arena.webp" alt="Valorant Background" class="background">
 
 
-  <!-- Logo -->
   <div class="logo-container">
     <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo">
   </div>
 
-  <!-- Card -->
   <div class="card">
     <h1>Valorant Ranked Tracking</h1>
 
@@ -37,18 +35,20 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Added players will show here -->
+          <!-- Added players shows here -->
         </tbody>
       </table>
     </div>
 
-<button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
-<p class="scrape-status">Idle</p>
+    <button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
+    <!-- <p class="scrape-status">Idle</p> -->
 
+    <!--terminal -->
+    <div id="terminal"></div>
   </div>
 
 <script>
-  const API_BASE = "https://bsu-esports-valorant.onrender.com"; // <-- your backend Render URL
+  const API_BASE = "https://bsu-esports-valorant.onrender.com";
 
   // ---------------- Players ----------------
   async function addPlayer() {
@@ -66,9 +66,7 @@
   }
 
   async function removePlayer(name) {
-    await fetch(`${API_BASE}/players/${encodeURIComponent(name)}`, {
-      method: "DELETE"
-    });
+    await fetch(`${API_BASE}/players/${encodeURIComponent(name)}`, { method: "DELETE" });
     renderPlayers();
   }
 
@@ -101,42 +99,58 @@
   // ---------------- Scraper ----------------
   let pollInterval;
 
+  function appendLog(msg) {
+    const term = document.getElementById("terminal");
+    const line = document.createElement("div");
+    line.textContent = msg;
+    term.appendChild(line);
+    // keep only last 20 lines
+    if (term.childNodes.length > 20) term.removeChild(term.firstChild);
+    term.scrollTop = term.scrollHeight;
+  }
+
   async function runScraper() {
     document.querySelector(".scrape-status").innerText = "Starting scrape...";
+    document.getElementById("terminal").innerHTML = "";
+    appendLog("▶ Starting scrape...");
+
     const res = await fetch(`${API_BASE}/run-scraper`, { method: "POST" });
     const data = await res.json();
 
     if (data.error) {
       document.querySelector(".scrape-status").innerText = "Error: " + data.error;
+      appendLog("❌ " + data.error);
       return;
     }
 
     document.querySelector(".scrape-status").innerText = "Scraping in progress...";
-
-    // start polling status every 10s
     if (pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(checkStatus, 10000);
-    checkStatus(); // run immediately too
+    pollInterval = setInterval(checkStatus, 5000);
+    checkStatus();
   }
 
   async function checkStatus() {
     const res = await fetch(`${API_BASE}/scraper-status`);
     const statusData = await res.json();
 
-    if (statusData.status === "running") {
-      document.querySelector(".scrape-status").innerText = "Scraping in progress...";
-    } else if (statusData.status === "done") {
+    if (statusData.logs) {
+      document.getElementById("terminal").innerHTML = "";
+      statusData.logs.forEach(l => appendLog(l));
+    }
+
+    if (statusData.progress) {
+      document.querySelector(".scrape-status").innerText =
+        `Scraping in progress... ${statusData.progress.current}/${statusData.progress.total}`;
+    }
+
+    if (statusData.status === "done") {
       clearInterval(pollInterval);
       document.querySelector(".scrape-status").innerText = "✅ Scrape finished!";
-      console.log("Scrape results:", statusData.results);
-
-      // OPTIONAL: display results nicely
-      alert("Scrape finished! Check console for results.");
+      appendLog("✅ Done!");
     } else if (statusData.status === "error") {
       clearInterval(pollInterval);
-      document.querySelector(".scrape-status").innerText = "❌ Error: " + (statusData.results?.message || "");
-    } else {
-      document.querySelector(".scrape-status").innerText = "Idle";
+      document.querySelector(".scrape-status").innerText = "❌ Error";
+      appendLog("❌ Error");
     }
   }
 
@@ -145,9 +159,5 @@
     window.location.href = "index.html";
   }
 </script>
-
-
-
-
 </body>
 </html>
