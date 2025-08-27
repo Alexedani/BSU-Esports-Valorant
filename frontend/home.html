@@ -19,6 +19,7 @@
   <div class="card">
     <h1>Valorant Ranked Tracking</h1>
 
+    <!-- Add Player Form -->
     <div class="form-group">
       <input type="text" id="playerName" placeholder="Player Name">
       <input type="text" id="playerTag" placeholder="Tag">
@@ -36,21 +37,22 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Added players will show here -->
+          <!-- Players will show here -->
         </tbody>
       </table>
     </div>
 
+    <!-- Run Scraper -->
     <button class="scrape-btn" onclick="runScraper()">Run Scrape Now</button>
   </div>
 
-  <!-- Terminal (outside card, centered below) -->
-  <div id="terminal" class="terminal"></div>
+  <!-- Terminal box OUTSIDE card -->
+  <div id="terminal"></div>
 
 <script>
-  const BASE_URL = "https://bsu-esports-valorant.onrender.com"; 
+  const BASE_URL = "https://bsu-esports-valorant.onrender.com";
 
-  // ---------------- Players ----------------
+  // ---------------- Player Management ----------------
   async function addPlayer() {
     const name = document.getElementById("playerName").value.trim();
     const tag = document.getElementById("playerTag").value.trim();
@@ -114,18 +116,20 @@
     });
   }
 
-  // ---------------- Terminal + Scraper ----------------
+  // ---------------- Terminal ----------------
   function appendLog(msg) {
     const term = document.getElementById("terminal");
     const line = document.createElement("div");
     line.textContent = msg;
     term.appendChild(line);
 
-    // keep last 20 lines
+    // keep only last ~20 lines
     if (term.childNodes.length > 20) term.removeChild(term.firstChild);
+
     term.scrollTop = term.scrollHeight;
   }
 
+  // ---------------- Scraper ----------------
   let pollInterval;
 
   async function runScraper() {
@@ -140,6 +144,7 @@
       return;
     }
 
+    // start polling every 5s
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(checkStatus, 5000);
     checkStatus();
@@ -155,22 +160,24 @@
     }
 
     if (statusData.progress) {
-      appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total}`);
+      appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`);
     }
 
     if (statusData.status === "done") {
       clearInterval(pollInterval);
-      appendLog("✅ Done!");
+      appendLog("✅ Scrape finished!");
     } else if (statusData.status === "error") {
       clearInterval(pollInterval);
       appendLog("❌ Error");
     }
   }
 
-  // ---------------- Init ----------------
+  // Redirect if not logged in
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
+
+  // Initial load
   renderPlayers();
 </script>
 </body>
