@@ -1,26 +1,31 @@
-#python 3.10 is what the webscraper uses 
-#idk if python 3.11 or 3.12 works
+# Use Python 3.10 slim image
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y wget gnupg2 curl unzip \
-    && mkdir -p /etc/apt/keyrings \
-    && wget -q -O- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    RENDER=true \
+    PORT=5000
+
+# Install system dependencies and Chrome
+RUN apt-get update && apt-get install -y wget gnupg unzip curl \
+    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
     && apt-get update && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set workdir
 WORKDIR /app
 
-# Copy dependencies first
+# Copy requirements first for caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copy all app code
 COPY . .
 
-# Expose Flask port
-EXPOSE 5000
+# Expose port for Render
+EXPOSE $PORT
 
-#Start Flask with Gunicorn
-CMD gunicorn app:app -b 0.0.0.0:$PORT
+# Run Flask app with Gunicorn
+CMD gunicorn -b 0.0.0.0:$PORT app:app
