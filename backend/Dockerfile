@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 5000
 
 # Run app with Xvfb + Gunicorn bound to Render's $PORT
-CMD ["xvfb-run", "-a", "gunicorn", "-b", "0.0.0.0:${PORT}", "app:app"]
+CMD ["sh", "-c", "xvfb-run -a gunicorn -b 0.0.0.0:${PORT} app:app"]
