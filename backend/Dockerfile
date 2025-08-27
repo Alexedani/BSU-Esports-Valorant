@@ -4,8 +4,9 @@ FROM python:3.10-slim
 # Install system dependencies for Chrome + Xvfb
 RUN apt-get update && apt-get install -y \
     wget gnupg unzip curl xvfb \
-    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -q -O- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && sh -c 'echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list' \
     && apt-get update && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
-# Expose port (Render will override this with $PORT)
+# Expose port (local use; Render overrides with $PORT)
 EXPOSE 5000
 
 # Start app with xvfb-run so Chrome has a fake display
