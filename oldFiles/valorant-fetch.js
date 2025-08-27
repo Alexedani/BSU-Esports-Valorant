@@ -1,151 +1,179 @@
-import requests
-import json
-from datetime import datetime, timedelta
-import os
+const axios = require('axios');
+const fs = require('fs');
 
-CONFIG_FILE = "players.json"
+const players = {
+    愛青空: "skies",
+    orphan: "K0s",
+    Skelesis: "folk",
+    master: "bsu",
+    Prestige: "bsu"
+}
 
-def load_players():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+const BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr";
+const BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v3/matches";
+const REGION = "na"; 
+const API_KEY = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"; 
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzaO1zn7lp2mc0u2Sr7g3bSITTCPXi6fb2kQXweeSN7kojyxGSiJ1CEt4L1Vr9hU4F2Bw/exec";
 
-WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
-BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr"
-BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v3/matches"
-REGION = "na"
-API_KEY = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"
+//data we need: Current rank
+//Ingame profile picutre/banner 
+//Current RR
+//Agent stats for the last 7 days
 
-def fetch_rank(name, tag):
-    url = f"{BASEURL_RANK}/{REGION}/{name}/{tag}"
-    headers = {"Authorization": API_KEY}
-    print(f"[INFO] Fetching rank for {name}#{tag} -> {url}")
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()["data"]
+function sevenDaysAgo() {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  //reset time to 12am so we dont miss any matches  
+  d.setHours(0, 0, 0, 0);       
+  return d;
+}
 
-    rank_data = {
-        "currenttier": data.get("current_data", {}).get("currenttierpatched", "Unranked"),
-        "rankImage": data.get("current_data", {}).get("images", {}).get("large"),
-        "rr": data.get("current_data", {}).get("ranking_in_tier")
+
+async function fetchRank(name, tag) {
+  const url = `${BASEURL_RANK}/${REGION}/${name}/${tag}`;
+  const response = await axios.get(url, {
+    headers: { Authorization: API_KEY }
+  });
+  const data = response.data.data;
+
+  return {
+    currenttier: data.current_data?.currenttierpatched || "Unranked",
+    rankImage: data.current_data?.images?.large || null,
+    rr: data.current_data?.ranking_in_tier ?? null
+  };
+}
+
+async function fetchAgentStats(name, tag) {
+  const cutoff = sevenDaysAgo();
+  const agentStats = {};
+  let page = 1;
+  let keepFetching = true;
+
+  while (keepFetching) {
+    const url = `${BASEURL_MATCHES}/${REGION}/${name}/${tag}?filter=all&size=70&page=${page}`;
+    const response = await axios.get(url, {
+      headers: { Authorization: API_KEY }
+    });
+
+    const matches = response.data.data || [];
+    if (matches.length === 0) break;
+
+    for (const match of matches) {
+      const gameDate = new Date(match.metadata.game_start * 1000);
+      const mode = match.metadata.mode.toLowerCase();
+
+      // ---- FILTER LOGIC ----
+      // includes all competitive games from the last 7 days
+      // includes all custom games played only on friday and saturday
+      let include = false;
+
+      if (mode === "competitive" && gameDate >= cutoff) {
+        include = true; 
+      } else if (mode === "custom") {
+        const day = gameDate.getDay();
+        if (day === 5 || day === 6) include = true; 
+      }
+
+      if (!include) continue;
+      // ----------------------
+
+      const player = match.players.all_players.find(
+        p => p.name.toLowerCase() === name.toLowerCase() &&
+             p.tag.toLowerCase() === tag.toLowerCase()
+      );
+      if (!player) continue;
+
+      const agent = player.character;
+      if (!agentStats[agent]) {
+        agentStats[agent] = { games: 0, totalACS: 0, totalKD: 0, wins: 0 };
+      }
+
+      agentStats[agent].games += 1;
+
+      // ACS = score / rounds
+      const acs = player.stats.score / match.metadata.rounds_played;
+      agentStats[agent].totalACS += acs;
+
+      // KD = kills / deaths
+      const kills = player.stats.kills;
+      const deaths = player.stats.deaths;
+      const kd = deaths > 0 ? kills / deaths : kills;
+      agentStats[agent].totalKD += kd;
+
+      // Wins
+      const team = player.team.toLowerCase();
+      if (match.teams[team]?.has_won) {
+        agentStats[agent].wins += 1;
+      }
     }
-    print(f"[OK] Rank fetched: {rank_data}")
-    return rank_data
 
-def fetch_agent_stats(name, tag):
-    print(f"[INFO] Fetching match history for {name}#{tag}")
-    headers = {"Authorization": API_KEY}
-    cutoff = datetime.now() - timedelta(days=7)
+    if (matches.length < 70) keepFetching = false;
+    else page++;
+  }
 
-    aggregated = {}
-    page = 1
-    stop = False
+  // Finalize averages
+  for (const agent in agentStats) {
+    const stats = agentStats[agent];
+    stats.avgACS = stats.totalACS / stats.games;
+    stats.avgKD = stats.totalKD / stats.games;
+    stats.winRate = (stats.wins / stats.games) * 100;
 
-    while not stop:
-        url = f"{BASEURL_MATCHES}/{REGION}/{name}/{tag}?mode=competitive&size=10&page={page}"
-        print(f"[DEBUG] Fetching {url}")
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        matches = resp.json().get("data", [])
+    delete stats.totalACS;
+    delete stats.totalKD;
+    delete stats.wins;
+  }
 
-        if not matches:
-            print("[INFO] No more matches found.")
-            break
+  return agentStats;
+}
 
-        for match in matches:
-            # Match start (unix timestamp in seconds)
-            ts = match["metadata"]["game_start"]
-            game_date = datetime.fromtimestamp(ts)
-
-            if game_date < cutoff:
-                print(f"[INFO] Match {match['metadata']['matchid']} is older than cutoff → stopping.")
-                stop = True
-                break
-
-            # Find this player in the match
-            player_data = None
-            for p in match["players"]["all_players"]:
-                if p["name"].lower() == name.lower() and p["tag"].lower() == tag.lower():
-                    player_data = p
-                    break
-
-            if not player_data:
-                continue  # skip if player not found
-
-            agent = player_data["character"]
-            stats = player_data["stats"]
-
-            # ADR: total damage / rounds played
-            adr_val = 0
-            if match["metadata"].get("rounds_played", 0) > 0:
-                adr_val = player_data.get("damage_made", 0) / match["metadata"]["rounds_played"]
-
-            # KD ratio
-            kd_val = stats["kills"] / stats["deaths"] if stats["deaths"] > 0 else stats["kills"]
-
-            # Win/loss
-            team = player_data["team"].lower()
-            win = match["teams"][team]["has_won"]
-
-            # Aggregate
-            if agent not in aggregated:
-                aggregated[agent] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
-
-            aggregated[agent]["games"] += 1
-            aggregated[agent]["totalADR"] += adr_val
-            aggregated[agent]["totalKD"] += kd_val
-            if win:
-                aggregated[agent]["wins"] += 1
-
-        page += 1
-
-    # Finalize averages
-    for agent, stats in aggregated.items():
-        games = stats["games"]
-        stats["avgADR"] = stats["totalADR"] / games
-        stats["avgKD"] = stats["totalKD"] / games
-        stats["winRate"] = (stats["wins"] / games) * 100
-        del stats["totalADR"], stats["totalKD"], stats["wins"]
-
-    print(f"[OK] Aggregated API stats for {name}#{tag}: {aggregated}")
-    return aggregated
-
-def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeout: int = 20) -> bool:
-    try:
-        resp = requests.post(url, json=weekly_stats, headers={"Content-Type": "application/json"}, timeout=timeout)
-        if resp.status_code != 200:
-            try:
-                print("[ERROR] GAS non-200:", resp.status_code, resp.json())
-            except Exception:
-                print("[ERROR] GAS non-200:", resp.status_code, resp.text)
-            return False
-        return True
-    except requests.RequestException as e:
-        print("[ERROR] RequestException:", str(e))
-        return False
-
-def fetch_player_data(players: dict):
-    results = []
-    for name, tag in players.items():
-        try:
-            rank = fetch_rank(name, tag)
-            agents = fetch_agent_stats(name, tag)
-            player_data = {"player": f"{name}#{tag}", "rank": rank, "agents": agents}
-            results.append(player_data)
-        except Exception as e:
-            print(f"[ERROR] Failed for {name}#{tag}: {str(e)}")
-
-    with open("weeklyStats.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-
-    posted = send_to_google_apps_script(results)
-    print("[INFO] Posted weekly stats to Google Sheets:", posted)
-
-    return results
-
-if __name__ == "__main__":
-    players = {
-        "master": "bsu"
+async function sendToGoogleAppsScript(data) {
+  try {
+    const resp = await axios.post(WEBAPP_URL, data, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    //for testing
+    //console.log('response:', resp.data);
+    if (resp.data.status === 'error') {
+      console.error('Server‑side error message:', resp.data.message);
     }
-    fetch_player_data(players)
+  } catch (err) {
+    // test
+    console.error('fail', 
+      err.response?.data || err.message);
+  }
+}
+
+
+async function fetchPlayerData() {
+  const results = [];
+
+  for (const name in players) {
+    const tag = players[name];
+
+    try {
+      const rank = await fetchRank(name, tag);
+      const agents = await fetchAgentStats(name, tag);
+
+      results.push({
+        player: `${name}#${tag}`,
+        rank,
+        agents
+      });
+
+      //Sends JSON to google apps script to be formatted
+      sendToGoogleAppsScript(results);
+
+    } catch (err) {
+      console.error(`Error fetching ${name}#${tag}`, err.response?.data || err.message);
+    }
+  }
+
+  fs.writeFileSync("weeklyStats.json", JSON.stringify(results, null, 2));
+}
+
+
+//fetchPlayerData();
+// const data = JSON.parse(fs.readFileSync("./weeklyStats.json", "utf8"));
+// sendToGoogleAppsScript(data);
+
+

@@ -9,56 +9,108 @@
     "agents": {
       "Jett": {
         "games": 10,
-        "avgADR": 222.67159155653016,
+        "avgADR": 163.11080854989524,
         "avgKD": 1.1641392276454197,
         "winRate": 50.0
       },
       "Raze": {
         "games": 8,
-        "avgADR": 220.38445328713522,
+        "avgADR": 168.4609625750394,
         "avgKD": 1.122017973856209,
         "winRate": 25.0
       },
       "Yoru": {
         "games": 4,
-        "avgADR": 205.89116438555834,
+        "avgADR": 163.51666666666665,
         "avgKD": 1.1366013071895424,
         "winRate": 75.0
       },
       "Fade": {
         "games": 3,
-        "avgADR": 224.43262441647093,
+        "avgADR": 161.44290382819796,
         "avgKD": 1.05,
         "winRate": 66.66666666666666
       },
       "Clove": {
         "games": 10,
-        "avgADR": 253.741700217532,
+        "avgADR": 190.62141304347824,
         "avgKD": 1.1233533868092693,
         "winRate": 30.0
       },
       "Sova": {
         "games": 2,
-        "avgADR": 183.28820611559755,
+        "avgADR": 143.1640866873065,
         "avgKD": 1.125,
         "winRate": 100.0
       },
       "Reyna": {
-        "games": 5,
-        "avgADR": 227.80334351457213,
-        "avgKD": 1.2319202898550725,
-        "winRate": 40.0
+        "games": 6,
+        "avgADR": 158.67612648073174,
+        "avgKD": 1.0907028056484578,
+        "winRate": 33.33333333333333
       },
       "Cypher": {
         "games": 2,
-        "avgADR": 175.59836992104903,
+        "avgADR": 129.97491638795987,
         "avgKD": 0.8809523809523809,
         "winRate": 0.0
       },
       "Killjoy": {
         "games": 1,
-        "avgADR": 170.4381596908465,
+        "avgADR": 124.42105263157895,
         "avgKD": 0.6,
+        "winRate": 0.0
+      }
+    }
+  },
+  {
+    "player": "skelesis#Folk",
+    "rank": {
+      "currenttier": "Immortal 1",
+      "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/24/largeicon.png",
+      "rr": 64
+    },
+    "agents": {
+      "Sova": {
+        "games": 12,
+        "avgADR": 128.56996003191654,
+        "avgKD": 1.1696438258164266,
+        "winRate": 58.333333333333336
+      },
+      "Vyse": {
+        "games": 1,
+        "avgADR": 161.54166666666666,
+        "avgKD": 1.4,
+        "winRate": 0.0
+      },
+      "Raze": {
+        "games": 2,
+        "avgADR": 169.1807780320366,
+        "avgKD": 1.2777777777777777,
+        "winRate": 100.0
+      },
+      "Tejo": {
+        "games": 2,
+        "avgADR": 105.7,
+        "avgKD": 0.9787878787878788,
+        "winRate": 50.0
+      },
+      "Gekko": {
+        "games": 1,
+        "avgADR": 86.55,
+        "avgKD": 0.6666666666666666,
+        "winRate": 0.0
+      },
+      "Fade": {
+        "games": 3,
+        "avgADR": 131.3270202020202,
+        "avgKD": 1.1047811837285522,
+        "winRate": 66.66666666666666
+      },
+      "Deadlock": {
+        "games": 2,
+        "avgADR": 113.79044117647058,
+        "avgKD": 0.930952380952381,
         "winRate": 0.0
       }
     }

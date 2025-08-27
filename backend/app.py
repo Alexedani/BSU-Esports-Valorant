@@ -1,132 +1,93 @@
-import os
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import json
 import threading
-from flask import Flask, jsonify, request, send_from_directory, render_template
-from flask_cors import CORS
+import os
 
-from valorantFetch import fetch_player_data, load_players
+from valorantScrape import fetch_player_data  #scraper
 
-app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
+app = Flask(__name__)
 CORS(app)
 
-# ========= Progress State ==========
-progress = {
-    "logs": [],
-    "current": 0,
-    "total": 0,
-    "running": False
-}
+PLAYERS_FILE = "players.json"
+SCRAPE_STATUS_FILE = "scrape_status.json"
 
-def log(msg: str):
-    """Log to memory + stdout"""
-    progress["logs"].append(msg)
-    print(msg, flush=True)
+# ---------------- Players helpers ----------------
+def load_players():
+    if not os.path.exists(PLAYERS_FILE):
+        return {}
+    try:
+        with open(PLAYERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
 
-# ========= Background Scraper ==========
-def run_scraper(players):
-    progress["running"] = True
-    progress["logs"] = []
-    progress["current"] = 0
-    progress["total"] = len(players)
+def save_players(players):
+    with open(PLAYERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(players, f, indent=2, ensure_ascii=False)
 
-    log(f"[INFO] Starting scrape for {len(players)} players...")
+# ---------------- Scraper helpers ----------------
+def save_status(status, results=None):
+    data = {"status": status}
+    if results is not None:
+        data["results"] = results
+    with open(SCRAPE_STATUS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
-    results = []
-    for idx, (name, tag) in enumerate(players.items(), 1):
-        try:
-            log(f"[INFO] Fetching {name}#{tag}...")
-            player_data = fetch_player_data({name: tag})[0]
-            results.append(player_data)
-            log(f"[OK] Finished {name}#{tag}")
-        except Exception as e:
-            log(f"[ERROR] {name}#{tag}: {e}")
-        progress["current"] = idx
+def load_status():
+    if not os.path.exists(SCRAPE_STATUS_FILE):
+        return {"status": "idle"}
+    with open(SCRAPE_STATUS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    # Save last results
-    with open("weeklyStats.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+def run_scraper_thread(players):
+    try:
+        save_status("running")
+        results = fetch_player_data(players)
+        save_status("done", results)
+    except Exception as e:
+        save_status("error", {"message": str(e)})
 
-    log("[INFO] Scraper finished.")
-    progress["running"] = False
-
-# ========= API Routes ==========
-
-@app.route("/")
-def home():
-    # serve frontend home.html
-    return send_from_directory(app.static_folder, "home.html")
-
+# ---------------- API routes ----------------
 @app.route("/players", methods=["GET"])
 def get_players():
     return jsonify(load_players())
 
-@app.route("/add-player", methods=["POST"])
+@app.route("/players", methods=["POST"])
 def add_player():
     data = request.json
     name, tag = data.get("name"), data.get("tag")
+    if not name or not tag:
+        return jsonify({"error": "Name and tag required"}), 400
     players = load_players()
     players[name] = tag
-    with open("players.json", "w", encoding="utf-8") as f:
-        json.dump(players, f, indent=2, ensure_ascii=False)
-    log(f"[INFO] Added player {name}#{tag}")
+    save_players(players)
     return jsonify(players)
 
-@app.route("/remove-player", methods=["POST"])
-def remove_player():
-    data = request.json
-    name = data.get("name")
+@app.route("/players/<name>", methods=["DELETE"])
+def delete_player(name):
     players = load_players()
     if name in players:
         del players[name]
-        with open("players.json", "w", encoding="utf-8") as f:
-            json.dump(players, f, indent=2, ensure_ascii=False)
-        log(f"[INFO] Removed player {name}")
+        save_players(players)
     return jsonify(players)
 
 @app.route("/run-scraper", methods=["POST"])
-def run_scraper_endpoint():
+def run_scraper():
     players = load_players()
     if not players:
-        return jsonify({"error": "No players to scrape"}), 400
+        return jsonify({"error": "No players configured"}), 400
 
-    if progress["running"]:
-        return jsonify({"error": "Scraper already running"}), 400
-
-    thread = threading.Thread(target=run_scraper, args=(players,))
+    # start background thread
+    thread = threading.Thread(target=run_scraper_thread, args=(players,))
+    thread.daemon = True
     thread.start()
-    return jsonify({"status": "started", "total": len(players)})
 
-@app.route("/status", methods=["GET"])
-def status():
-    return jsonify(progress)
-
-# ========= Static Files ==========
-@app.route('/<path:path>')
-def static_proxy(path):
-    return send_from_directory(app.static_folder, path)
-
-@app.route("/save-player", methods=["POST"])
-def save_player_alias():
-    # Reuse the existing /add-player logic
-    return add_player()
+    return jsonify({"status": "scraper started", "players": players})
 
 @app.route("/scraper-status", methods=["GET"])
-def scraper_status_alias():
-    # Shape it as { status, logs, progress } to match the frontend
-    state = (
-        "running" if progress.get("running") else
-        ("done" if progress.get("total", 0) > 0 and progress.get("current", 0) >= progress.get("total", 0) else "idle")
-    )
-    return jsonify({
-        "status": state,
-        "logs": progress.get("logs", []),
-        "progress": {
-            "current": progress.get("current", 0),
-            "total": progress.get("total", 0)
-        }
-    })
+def scraper_status():
+    return jsonify(load_status())
 
-# ========= Entrypoint ==========
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=5000)

@@ -1,118 +1,260 @@
-import requests
+# valorantFetch.py
+import os
 import json
 import time
-from datetime import datetime, timedelta
+import requests
+from urllib.parse import quote
+from datetime import datetime, timedelta, timezone
 from dateutil import parser as dateparser
-import os
 
-# --- Config ---
+# ========= Config =========
 CONFIG_FILE = "players.json"
-WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
-BASEURL_RANK = "https://api.henrikdev.xyz/valorant/v2/mmr"
-BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v4/matches"
-REGION = "na"
-API_KEY = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"
 
-# --- Helpers ---
+# Google Apps Script Web App (POST endpoint)
+WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
+
+# HenrikDev
+BASEURL_RANK    = "https://api.henrikdev.xyz/valorant/v2/mmr"
+BASEURL_MATCHES = "https://api.henrikdev.xyz/valorant/v4/matches"
+REGION   = "na"
+PLATFORM = "pc"
+API_KEY  = "HDEV-1c01af3c-49eb-44a1-a55e-b1ecf252ad12"
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+# ========= Helpers =========
 def load_players():
-    if os.path.exists(CONFIG_FILE):
+    """Read players.json -> dict like {'name': 'tag', ...}"""
+    try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        return {}
 
+def _sleep_for_rate_limit(resp):
+    ra = resp.headers.get("Retry-After")
+    if ra:
+        try:
+            return max(1, int(float(ra)))
+        except Exception:
+            pass
+    xr = resp.headers.get("x-ratelimit-reset")
+    if xr:
+        try:
+            return max(1, int(float(xr)))
+        except Exception:
+            pass
+    return 60
+
+def _num(x, default=0.0):
+    """Coerce number (handles int/float/str/dict)."""
+    try:
+        if isinstance(x, (int, float)):
+            return float(x)
+        if isinstance(x, str):
+            return float(x.strip().replace(",", ""))
+        if isinstance(x, dict):
+            # Try common keys that might hold totals
+            for k in ("dealt", "made", "damage", "total", "overall", "value", "won", "lost"):
+                if k in x:
+                    return _num(x[k], default)
+        return default
+    except Exception:
+        return default
+
+# ========= Rank =========
 def fetch_rank(name, tag):
     url = f"{BASEURL_RANK}/{REGION}/{name}/{tag}"
-    headers = {"Authorization": API_KEY}
+    headers = {"Authorization": API_KEY, "User-Agent": UA}
     print(f"[INFO] Fetching rank for {name}#{tag} -> {url}")
     resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    data = resp.json()["data"]
 
-    rank_data = {
-        "currenttier": data.get("current_data", {}).get("currenttierpatched", "Unranked"),
-        "rankImage": data.get("current_data", {}).get("images", {}).get("large"),
-        "rr": data.get("current_data", {}).get("ranking_in_tier")
-    }
+    if resp.status_code == 429:
+        secs = _sleep_for_rate_limit(resp)
+        print(f"[WARN] 429 on rank. Sleeping {secs}s…")
+        time.sleep(secs)
+        resp = requests.get(url, headers=headers)
+
+    resp.raise_for_status()
+    body = resp.json().get("data", {})  # v2 returns {data: {...}}
+    cur = body.get("current_data", {}) or body.get("current", {})
+
+    tier = cur.get("currenttierpatched") or cur.get("current_tier_patched") or "Unranked"
+    imgs = cur.get("images", {}) or body.get("images", {})
+    rank_img = imgs.get("large") or imgs.get("largeicon")
+    rr = cur.get("ranking_in_tier")
+
+    rank_data = {"currenttier": tier, "rankImage": rank_img, "rr": rr}
     print(f"[OK] Rank fetched: {rank_data}")
     return rank_data
 
-def fetch_agent_stats(name, tag):
+# ========= Matches -> Agent Aggregation (v4) =========
+def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
+    """
+    Aggregate last 7 days of competitive matches by agent from HenrikDev v4.
+
+    Endpoint (per docs):
+      GET /valorant/v4/matches/{region}/{platform}/{name}/{tag}
+      players: list
+      teams: list with {'team_id','won','rounds':{'won','lost'}}
+      rounds: list (one per round)
+    """
     print(f"[INFO] Fetching match history for {name}#{tag}")
-    headers = {"Authorization": API_KEY}
-    now = datetime.now(datetime.utcnow().astimezone().tzinfo)
+    headers = {"Authorization": API_KEY, "User-Agent": UA}
+
+    # URL-encode name/tag safely
+    enc_name = quote(str(name), safe="")
+    enc_tag  = quote(str(tag),  safe="")
+
+    now = datetime.now(timezone.utc)
     cutoff = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     aggregated = {}
     start = 0
     size = 10
-    done = False
 
-    while not done:
-        url = f"{BASEURL_MATCHES}/{REGION}/pc/{name}/{tag}?mode=competitive&size={size}&start={start}"
+    want_name = (name or "").strip().lower()
+    want_tag  = (tag  or "").strip().lower()
+
+    def same_player(p):
+        # v4 sample has 'name'/'tag'
+        n = (p.get("name") or "").strip().lower()
+        t = (p.get("tag")  or "").strip().lower()
+        return n == want_name and t == want_tag
+
+    while True:
+        url = f"{BASEURL_MATCHES}/{region}/{platform}/{enc_name}/{enc_tag}?mode=competitive&size={size}&start={start}"
         print(f"[DEBUG] Fetching {url}")
         resp = requests.get(url, headers=headers)
 
-        # --- Handle rate limits ---
+        # Rate limits
         if resp.status_code == 429:
-            reset_after = int(resp.headers.get("x-ratelimit-reset", 60))
-            print(f"[WARN] 429 Too Many Requests — sleeping {reset_after} seconds")
-            time.sleep(reset_after)
+            secs = _sleep_for_rate_limit(resp)
+            print(f"[WARN] 429 Too Many Requests — sleeping {secs} seconds")
+            time.sleep(secs)
             continue
 
+        if resp.status_code == 404:
+            # If this happens, name/tag/region/platform is wrong (or account hidden)
+            print(f"[ERROR] 404 Not Found: {url}")
+            break
+
         resp.raise_for_status()
-        data = resp.json().get("data", [])
-        if not data:
+        matches = resp.json().get("data", [])
+        if not isinstance(matches, list) or not matches:
             print("[INFO] No more matches returned.")
             break
 
-        for match in data:
+        stop_early = False
+        for match in matches:
+            if not isinstance(match, dict):
+                continue
+
             meta = match.get("metadata", {})
-            game_date = dateparser.parse(meta.get("started_at"))
+            # v4 sample has ISO datetime at metadata.started_at
+            started_at = meta.get("started_at")
+            try:
+                game_date = dateparser.parse(started_at).astimezone(timezone.utc) if started_at else now
+            except Exception:
+                game_date = now
 
             if game_date < cutoff:
                 print(f"[INFO] Reached match older than 7 days ({game_date}), stopping.")
-                done = True
+                stop_early = True
                 break
 
-            # Did this player participate?
-            player_obj = None
-            for p in match.get("players", []):
-                if p.get("name") == name and p.get("tag") == tag:
-                    player_obj = p
-                    break
-
+            # ---- players: list ----
+            players_list = match.get("players", []) or []
+            player_obj = next((p for p in players_list if isinstance(p, dict) and same_player(p)), None)
             if not player_obj:
                 continue
 
-            agent_name = player_obj.get("agent", {}).get("name", "Unknown")
-            stats = player_obj.get("stats", {})
-            adr = stats.get("damage", {}).get("dealt", 0) / max(1, match["metadata"].get("game_length_in_ms", 1) / (1000 * 120))  # rough ADR estimate
-            kd = stats.get("kills", 0) / max(1, stats.get("deaths", 1))
-            win = any(team.get("team_id") == player_obj.get("team_id") and team.get("won") for team in match.get("teams", []))
+            # Agent name (v4: player.agent.name)
+            agent_name = (player_obj.get("agent") or {}).get("name") or "Unknown"
 
-            if agent_name not in aggregated:
-                aggregated[agent_name] = {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0}
+            # ----- compute total rounds in match (v4) -----
+            rounds_list = match.get("rounds", [])
+            if isinstance(rounds_list, list) and rounds_list:
+                total_rounds = len(rounds_list)
+            else:
+                total_rounds = 0
+                teams_block = match.get("teams", [])
+                if isinstance(teams_block, list):
+                    for tm in teams_block:
+                        r = tm.get("rounds", {}) or {}
+                        won  = _num(r.get("won", 0))
+                        lost = _num(r.get("lost", 0))
+                        if won or lost:
+                            total_rounds = int(won + lost)
+                            break
+                elif isinstance(teams_block, dict):
+                    # legacy dict-shaped fallback
+                    red  = teams_block.get("red")  or teams_block.get("Red")  or {}
+                    blue = teams_block.get("blue") or teams_block.get("Blue") or {}
+                    rw = _num((red.get("rounds") or {}).get("won", red.get("rounds_won", 0)))
+                    rl = _num((red.get("rounds") or {}).get("lost", red.get("rounds_lost", 0)))
+                    if rw or rl:
+                        total_rounds = int(rw + rl)
 
-            aggregated[agent_name]["games"] += 1
-            aggregated[agent_name]["totalADR"] += adr
-            aggregated[agent_name]["totalKD"] += kd
+                if total_rounds <= 0:
+                    total_rounds = int(_num(meta.get("rounds_played", 0))) or 1  # last resort
+
+            # ----- damage, ADR, KD -----
+            stats = player_obj.get("stats", {}) or {}
+            damage_total = _num((stats.get("damage") or {}).get("dealt", 0))
+            kills  = _num(stats.get("kills", 0))
+            deaths = _num(stats.get("deaths", 0))
+            kd = kills / (deaths if deaths else 1.0)
+            adr = damage_total / float(total_rounds)
+
+            # ----- win? (v4 teams is a list with 'team_id'/'won') -----
+            win = False
+            my_team_id = player_obj.get("team_id")
+            teams_block = match.get("teams", [])
+            if isinstance(teams_block, list):
+                for tm in teams_block:
+                    if tm.get("team_id") == my_team_id:
+                        win = bool(tm.get("won"))
+                        break
+            else:
+                # legacy dict-shaped fallback
+                team_key = (player_obj.get("team") or "").lower()
+                tb = teams_block.get(team_key) or teams_block.get(team_key.capitalize()) or {}
+                win = bool(tb.get("has_won"))
+
+            # ----- aggregate by agent -----
+            agg = aggregated.setdefault(agent_name, {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0})
+            agg["games"] += 1
+            agg["totalADR"] += adr
+            agg["totalKD"] += kd
             if win:
-                aggregated[agent_name]["wins"] += 1
+                agg["wins"] += 1
+
+        if stop_early:
+            break
+
+        # Pagination
+        if len(matches) < size:
+            print("[INFO] Last page reached.")
+            break
 
         start += size
-        time.sleep(2)  # pacing requests
+        time.sleep(1.5)
 
-    # Finalize averages
-    for agent, stats in aggregated.items():
-        games = stats["games"]
-        stats["avgADR"] = stats["totalADR"] / games
-        stats["avgKD"] = stats["totalKD"] / games
-        stats["winRate"] = (stats["wins"] / games) * 100
-        del stats["totalADR"], stats["totalKD"], stats["wins"]
+    # Finalize to averages
+    for agent, st in list(aggregated.items()):
+        g = max(1, st["games"])
+        st["avgADR"]  = st["totalADR"] / g
+        st["avgKD"]   = st["totalKD"] / g
+        st["winRate"] = (st["wins"] / g) * 100.0
+        del st["totalADR"], st["totalKD"], st["wins"]
 
     print(f"[OK] Aggregated stats for {name}#{tag}: {aggregated}")
     return aggregated
 
+# ========= Google Apps Script POST =========
 def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeout: int = 20) -> bool:
     try:
         resp = requests.post(url, json=weekly_stats, headers={"Content-Type": "application/json"}, timeout=timeout)
@@ -127,28 +269,35 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
         print("[ERROR] RequestException:", str(e))
         return False
 
+# ========= Orchestrator =========
 def fetch_player_data(players: dict):
+    """
+    players: dict like {'master': 'bsu', 'skelesis': 'Folk'}
+    Returns list of player result dicts. Also writes weeklyStats.json and POSTs to GAS.
+    """
     results = []
     for name, tag in players.items():
         try:
             rank = fetch_rank(name, tag)
             agents = fetch_agent_stats(name, tag)
-            player_data = {"player": f"{name}#{tag}", "rank": rank, "agents": agents}
-            results.append(player_data)
+            results.append({"player": f"{name}#{tag}", "rank": rank, "agents": agents})
         except Exception as e:
             print(f"[ERROR] Failed for {name}#{tag}: {str(e)}")
+            results.append({"player": f"{name}#{tag}", "error": str(e)})
 
+    # Save locally for your pipeline
     with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     posted = send_to_google_apps_script(results)
     print("[INFO] Posted weekly stats to Google Sheets:", posted)
-
     return results
 
-# --- Run locally ---
+# ========= Local run =========
 if __name__ == "__main__":
     players = {
-        "master": "bsu"
+        "master":   "bsu",
+        "skelesis": "Folk",
+        # add more here...
     }
     fetch_player_data(players)
