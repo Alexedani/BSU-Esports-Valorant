@@ -1,0 +1,30 @@
+[
+  {
+    "player": "master#bsu",
+    "rank": {
+      "currenttier": "Immortal 1",
+      "rankImage": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/24/largeicon.png",
+      "rr": 13
+    },
+    "agents": {
+      "Jett": {
+        "games": 4,
+        "avgADR": 135.30275974025975,
+        "avgKD": 0.9360135800731776,
+        "winRate": 50.0
+      },
+      "Raze": {
+        "games": 3,
+        "avgADR": 154.313621463078,
+        "avgKD": 0.9296296296296296,
+        "winRate": 0.0
+      },
+      "Yoru": {
+        "games": 3,
+        "avgADR": 157.46666666666667,
+        "avgKD": 1.0840958605664488,
+        "winRate": 66.66666666666666
+      }
+    }
+  }
+]
