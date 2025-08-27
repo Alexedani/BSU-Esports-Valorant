@@ -36,25 +36,29 @@ def log(msg: str):
 
 # ========= Background Scraper ==========
 def run_scraper(players):
-    progress.update({"running": True, "logs": [], "current": 0, "total": len(players)})
+    progress["running"] = True
+    progress["logs"] = []
+    progress["current"] = 0
+    progress["total"] = len(players)
+
     log(f"[INFO] Starting scrape for {len(players)} players...")
 
-    results = []
-    for idx, (name, tag) in enumerate(players.items(), 1):
-        try:
-            log(f"[INFO] Fetching {name}#{tag}...")
-            player_data = fetch_player_data({name: tag})[0]
-            results.append(player_data)
-            log(f"[OK] Finished {name}#{tag}")
-        except Exception as e:
-            log(f"[ERROR] {name}#{tag}: {e}")
-        progress["current"] = idx
+    # 🔸 Fetch ALL players in one call (this also POSTS the whole list to GAS)
+    try:
+        results = fetch_player_data(players)
+        progress["current"] = progress["total"]
+    except Exception as e:
+        log(f"[ERROR] Batch fetch failed: {e}")
+        progress["running"] = False
+        return
 
-    with open(os.path.join(BASE_DIR, "weeklyStats.json"), "w", encoding="utf-8") as f:
+    # Save last results locally
+    with open("weeklyStats.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     log("[INFO] Scraper finished.")
     progress["running"] = False
+
 
 # ========= API Routes ==========
 @app.route("/")
