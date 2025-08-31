@@ -372,39 +372,42 @@
   }
 
   async function importPlayers(input) {
-  const file = input.files[0];
-  if (!file) return;
+    const file = input.files[0];
+    if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
 
-      if (typeof data !== "object" || Array.isArray(data)) {
-        appendLog("❌ Invalid file format. Expected {name: tag}");
-        return;
+        if (typeof data !== "object" || Array.isArray(data)) {
+          appendLog("❌ Invalid file format. Expected {name: tag}");
+          input.value = ""; // reset
+          return;
+        }
+
+        const res = await fetch(`${BASE_URL}/bulk-add-players`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          const txt = await res.text();
+          appendLog("❌ Bulk add failed: " + txt);
+        } else {
+          appendLog(`✅ Imported ${Object.keys(data).length} players`);
+          await renderPlayers();
+        }
+      } catch (err) {
+        appendLog("❌ Error parsing file: " + err.message);
+      } finally {
+        input.value = ""; // 🔑 allow re-import of same file
       }
+    };
+    reader.readAsText(file);
+  }
 
-      const res = await fetch(`${BASE_URL}/bulk-add-players`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        appendLog("❌ Bulk add failed: " + txt);
-        return;
-      }
-
-      appendLog(`✅ Imported ${Object.keys(data).length} players`);
-      await renderPlayers();
-    } catch (err) {
-      appendLog("❌ Error parsing file: " + err.message);
-    }
-  };
-  reader.readAsText(file);
-}
 
   // Initial load
   renderPlayers();
