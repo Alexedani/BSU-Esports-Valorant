@@ -170,10 +170,8 @@ def save_player_alias():
 
 @app.route("/scraper-status", methods=["GET"])
 def scraper_status_alias():
-    state = (
-        "running" if progress.get("running") else
-        ("done" if progress.get("total", 0) > 0 and progress.get("current", 0) >= progress.get("total", 0) else "idle")
-    )
+    # Always prefer explicit status set in run_scraper
+    state = progress.get("status", "idle")
     return jsonify({
         "status": state,
         "logs": progress.get("logs", []),
@@ -182,6 +180,7 @@ def scraper_status_alias():
             "total": progress.get("total", 0)
         }
     })
+
 
 # ========= Static Files =========
 @app.route("/<path:path>", methods=["GET"])
