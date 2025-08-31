@@ -298,3 +298,44 @@ table tr { height: 28px; }    /* hard cap row height if needed */
   box-shadow: 0 0 20px #0f0;
 }
 
+/* Settings Panel */
+.config-panel {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;              /* spacing between items */
+  margin: 1rem 0;
+  font-size: 0.85rem;       /* smaller text than main inputs */
+  color: #fff;
+  flex-wrap: wrap;          /* prevents overflow on smaller screens */
+}
+
+/* Label + input pair */
+.config-panel label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+/* Compact number input */
+.config-panel input[type="number"] {
+  width: 55px;
+  padding: 3px 5px;
+  font-size: 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: #fff;
+  color: #000;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.config-panel input[type="number"]:focus {
+  border-color: #007bff;
+}
+
+/* Checkbox styling */
+.config-panel input[type="checkbox"] {
+  transform: scale(1.1);
+}

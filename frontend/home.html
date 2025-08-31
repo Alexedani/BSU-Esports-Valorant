@@ -58,29 +58,27 @@
       </table>
     </div>
 
-    
+    <br/>
+    <label for="playerFile">Settings:</label>
+    <div class="config-panel">
+      <label>
+        Days back:
+        <input type="number" id="daysBack" value="7" min="1" max="30">
+      </label>
+
+      <label>
+        Min games:
+        <input type="number" id="minGames" value="1" min="1" max="20">
+      </label>
+
+      <label>
+        <input type="checkbox" id="skipToday">
+        Skip today
+      </label>
+    </div>
 
     <button class="scrape-btn" onclick="runScraper()">Run Script</button>
-    <div class="config-panel">
-  <h3>Scraper Settings</h3>
 
-  <label>
-    Days back:
-    <input type="number" id="daysBack" value="7" min="1" max="30">
-  </label>
-  <br>
-
-  <label>
-    Min games per agent:
-    <input type="number" id="minGames" value="1" min="1" max="20">
-  </label>
-  <br>
-
-  <label>
-    <input type="checkbox" id="skipToday">
-    Skip today’s matches
-  </label>
-</div>
 
   </div>
 
@@ -98,7 +96,7 @@
   <h4>What is this tool?</h4>
   <p>
     This tool tracks Valorant ranked data for the listed players and automatically
-    sends weekly stats to our Google Sheet.
+    sends stats to our Google Sheet.
   </p>
 
   <h4>How to use it</h4>
@@ -119,9 +117,33 @@
 }</pre>
       Uploading a file will <strong>replace the entire list</strong> of tracked players.
     </li>
-    <li>Click <strong>Run Script</strong> to start the. Progress and logs will appear in the console below.</li>
-    <li>When finished, click <strong>View Results</strong> to open the Google Sheet.</li>
+    <li>
+      Adjust <strong>Settings</strong> (Days Back, Min Games, Skip Today) to control how data is collected.
+    </li>
+    <li>
+      Click <strong>Run Script</strong> to start. Progress and logs will appear in the console below.
+    </li>
+    <li>
+      When finished, click <strong>View Results</strong> to open the Google Sheet.
+    </li>
   </ol>
+
+  <h4>Settings Explained</h4>
+  <ul>
+    <li>
+      <strong>Days Back:</strong> Controls how far back in time to collect match data
+      (default: 7). 
+    </li>
+    <li>
+      <strong>Min Games:</strong> Filters out agents that were only played a small number
+      of times. For example, setting it to 3 ensures only agents with at least 3 matches
+      are shown.
+    </li>
+    <li>
+      <strong>Skip Today:</strong> Ignores matches from the current day, so only
+      completed full days are included. This is useful for weekly reporting if the script is ran earlier in the day and not all players have played yet or finished playing that day.
+    </li>
+  </ul>
 
   <h4>Important Notes</h4>
   <ul>
@@ -147,6 +169,7 @@
     <li>Discord: <code>.turbostar</code></li>
   </ul>
 </div>
+
 
     </div>
   </div>
