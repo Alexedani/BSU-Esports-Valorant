@@ -107,16 +107,18 @@
   const BASE_URL = "https://bsu-esports-valorant.onrender.com";
   const SHEET_URL = "https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0";
 
+  let pollInterval;
+
   // --------------- Helpers (terminal) ---------------
   function prune(term) {
-    if (term.childNodes.length > 20) term.removeChild(term.firstChild);
+    if (term.childNodes.length > 50) term.removeChild(term.firstChild); // keep more logs
     term.scrollTop = term.scrollHeight;
   }
 
   function appendLog(msg) {
     const term = document.getElementById("terminal");
     const line = document.createElement("div");
-    line.textContent = msg; // keep plain text for safety
+    line.innerText = msg;
     term.appendChild(line);
     prune(term);
   }
@@ -129,11 +131,17 @@
     a.href = url;
     a.target = "_blank";
     a.rel = "noopener";
-    a.textContent = text;
+    a.innerText = text;
     a.style.color = "#fff";
     line.appendChild(a);
     term.appendChild(line);
     prune(term);
+  }
+
+  function clearTerminal(color = "#fff") {
+    const term = document.getElementById("terminal");
+    term.innerHTML = "";
+    term.style.color = color;
   }
 
   // --------------- Player Management ---------------
@@ -226,65 +234,97 @@
     }
   }
 
-  //help button
+  // --------------- Run Scraper ---------------
+  async function runScraper() {
+    const btn = document.querySelector(".scrape-btn");
+    btn.disabled = true;
+
+    clearTerminal("#fff");
+    appendLog("▶ Starting scrape...");
+
+    try {
+      const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
+      const data = await res.json();
+
+      if (data.error) {
+        clearTerminal("red");
+        appendLog("❌ " + data.error);
+        btn.disabled = false;
+        return;
+      }
+
+      // start polling
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(checkStatus, 5000);
+      checkStatus();
+    } catch (err) {
+      clearTerminal("red");
+      appendLog("❌ Failed to start scraper");
+      btn.disabled = false;
+    }
+  }
+
+  async function checkStatus() {
+    try {
+      const res = await fetch(`${BASE_URL}/scraper-status`);
+      const statusData = await res.json();
+
+      if (statusData.logs) {
+        const term = document.getElementById("terminal");
+        term.innerHTML = "";
+        statusData.logs.forEach(l => appendLog(l));
+      }
+
+      if (statusData.progress) {
+        appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`);
+      }
+
+      if (statusData.status === "done") {
+        clearInterval(pollInterval);
+        appendLog("✅ Scrape finished!");
+        appendLinkToLog(SHEET_URL);
+        document.querySelector(".scrape-btn").disabled = false;
+      } else if (statusData.status === "error") {
+        clearInterval(pollInterval);
+        clearTerminal("red");
+        appendLog("❌ Error while scraping");
+        document.querySelector(".scrape-btn").disabled = false;
+      }
+    } catch (err) {
+      clearInterval(pollInterval);
+      clearTerminal("red");
+      appendLog("❌ Status check failed");
+      document.querySelector(".scrape-btn").disabled = false;
+    }
+  }
+
+  // --------------- Last Results Button ---------------
+  async function viewLastResults() {
+    try {
+      const res = await fetch(`${BASE_URL}/last-results`);
+      if (!res.ok) throw new Error("failed");
+      appendLog("📊 Last scrape results available:");
+      appendLinkToLog(SHEET_URL, "Open Google Sheet");
+    } catch (err) {
+      clearTerminal("red");
+      appendLog("❌ Failed to load last results");
+    }
+  }
+
+  // --------------- Help & Auth ---------------
   function toggleHelp(show) {
     const ov = document.getElementById("helpOverlay");
     ov.style.display = show ? "flex" : "none";
   }
 
-  //run script
-  let pollInterval;
-
-  async function runScraper() {
-    document.getElementById("terminal").innerHTML = "";
-    appendLog("▶ Starting scrape...");
-
-    const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
-    const data = await res.json();
-
-    if (data.error) {
-      appendLog("❌ " + data.error);
-      return;
-    }
-
-    // start polling every 5s
-    if (pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(checkStatus, 5000);
-    checkStatus();
-  }
-
-  async function checkStatus() {
-    const res = await fetch(`${BASE_URL}/scraper-status`);
-    const statusData = await res.json();
-
-    if (statusData.logs) {
-      const term = document.getElementById("terminal");
-      term.innerHTML = "";
-      statusData.logs.forEach(l => appendLog(l));
-    }
-
-    if (statusData.progress) {
-      appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`);
-    }
-
-    if (statusData.status === "done") {
-      clearInterval(pollInterval);
-      appendLog("✅ Scrape finished!");
-      appendLinkToLog(SHEET_URL);
-    } else if (statusData.status === "error") {
-      clearInterval(pollInterval);
-      appendLog("❌ Error");
-    }
-  }
-
-  //redirect if not logged in
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
 
-  //initial load
+  // Initial load
   renderPlayers();
 </script>
+
 
 </body>
 </html>
