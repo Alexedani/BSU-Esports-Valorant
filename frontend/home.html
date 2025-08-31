@@ -36,6 +36,11 @@
       <button onclick="addPlayer()">Add Player</button>
     </div>
 
+    <div class="form-group">
+      <label for="playerFile">Import Players (JSON):</label>
+      <input type="file" id="playerFile" accept=".json" onchange="importPlayers(this)">
+    </div>
+ 
 
     <div class="table-container">
       <table id="playersTable">
@@ -365,6 +370,41 @@
   if (localStorage.getItem("loggedIn") !== "true") {
     window.location.href = "index.html";
   }
+
+  async function importPlayers(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      if (typeof data !== "object" || Array.isArray(data)) {
+        appendLog("❌ Invalid file format. Expected {name: tag}");
+        return;
+      }
+
+      const res = await fetch(`${BASE_URL}/bulk-add-players`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        appendLog("❌ Bulk add failed: " + txt);
+        return;
+      }
+
+      appendLog(`✅ Imported ${Object.keys(data).length} players`);
+      await renderPlayers();
+    } catch (err) {
+      appendLog("❌ Error parsing file: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
 
   // Initial load
   renderPlayers();

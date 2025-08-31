@@ -181,6 +181,21 @@ def scraper_status_alias():
         }
     })
 
+@app.route("/bulk-add-players", methods=["POST"])
+def bulk_add_players():
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected JSON object {name: tag}"}), 400
+
+    try:
+        write_players(data)  
+    except Exception as e:
+        log(f"[ERROR] bulk write failed: {e}")
+        return jsonify({"error": "failed to write players.json"}), 500
+
+    log(f"[INFO] Bulk replaced players list with {len(data)} players")
+    return jsonify(data)
+
 
 # ========= Static Files =========
 @app.route("/<path:path>", methods=["GET"])
