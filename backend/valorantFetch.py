@@ -6,6 +6,7 @@ from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 from dateutil import parser as dateparser
 import threading
+from requests.exceptions import ReadTimeout, ConnectionError
 
 # ========= Local storage paths =========
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +68,19 @@ def _num(x, default=0.0):
         return default
 
 
+# ========= Networking helper =========
+def safe_get(url, headers, retries=3, backoff=5):
+    """GET with retries and longer read timeout (safe for slow API responses)."""
+    for attempt in range(1, retries + 1):
+        try:
+            return requests.get(url, headers=headers, timeout=(10, 60))
+        except (ReadTimeout, ConnectionError) as e:
+            print(f"[WARN] Timeout/connection error on {url} (attempt {attempt}/{retries}): {e}", flush=True)
+            if attempt == retries:
+                raise
+            time.sleep(backoff)
+
+
 # ========= Watchdog =========
 class Watchdog:
     """Simple cross-platform watchdog using threading.Timer."""
@@ -98,7 +112,7 @@ def fetch_rank(name, tag):
     headers = {"Authorization": API_KEY, "User-Agent": UA}
     print(f"[INFO] Fetching rank for {name}#{tag} -> {url}", flush=True)
 
-    resp = requests.get(url, headers=headers, timeout=15)
+    resp = safe_get(url, headers=headers)
 
     if resp.status_code == 404:
         msg = f"Player {name}#{tag} not found or profile hidden"
@@ -109,7 +123,7 @@ def fetch_rank(name, tag):
         secs = _sleep_for_rate_limit(resp)
         print(f"[WARN] 429 on rank. Sleeping {secs}s…", flush=True)
         time.sleep(secs)
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = safe_get(url, headers=headers)
 
     resp.raise_for_status()
     body = resp.json().get("data", {})
@@ -159,7 +173,7 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
 
         url = f"{BASEURL_MATCHES}/{region}/{platform}/{enc_name}/{enc_tag}?mode=competitive&size={size}&start={start}"
         print(f"[DEBUG] Fetching {url}", flush=True)
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = safe_get(url, headers=headers)
 
         if resp.status_code == 429:
             secs = _sleep_for_rate_limit(resp)
@@ -318,6 +332,6 @@ if __name__ == "__main__":
     if not players:
         players = {
             "master": "bsu",
-            "skelesis": "Folk"
+            "singlepringle": "5848"
         }
     fetch_player_data(players)
