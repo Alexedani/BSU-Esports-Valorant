@@ -15,6 +15,13 @@
     <img src="bsu-logo-esports.webp" alt="Boise State Logo" class="logo"/>
   </div>
 
+  <!-- Loading Screen -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-box">
+      <p>🔄 Connecting to server...</p>
+    </div>
+  </div>
+
   <!-- Main Card -->
   <div class="card">
     <!-- help button -->
@@ -108,10 +115,11 @@
   const SHEET_URL = "https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0";
 
   let pollInterval;
+  let scraperRunning = false; // local flag synced with backend
 
   // --------------- Helpers (terminal) ---------------
   function prune(term) {
-    if (term.childNodes.length > 50) term.removeChild(term.firstChild); // keep more logs
+    if (term.childNodes.length > 50) term.removeChild(term.firstChild);
     term.scrollTop = term.scrollHeight;
   }
 
@@ -132,20 +140,24 @@
     a.target = "_blank";
     a.rel = "noopener";
     a.innerText = text;
-    a.style.color = "#fff";
+    a.style.color = "#0f0";
     line.appendChild(a);
     term.appendChild(line);
     prune(term);
   }
 
-  function clearTerminal(color = "#fff") {
+  function clearTerminal(color = "#0f0") {
     const term = document.getElementById("terminal");
     term.innerHTML = "";
-    term.style.color = color;
+    term.style.color = color; // default green text
   }
 
   // --------------- Player Management ---------------
   async function addPlayer() {
+    if (scraperRunning) {
+      appendLog("⚠ Cannot add players while scraper is running");
+      return;
+    }
     const name = document.getElementById("playerName").value.trim();
     const tag  = document.getElementById("playerTag").value.trim();
     if (!name || !tag) return alert("Enter both name and tag!");
@@ -160,7 +172,7 @@
       if (!res.ok) {
         const txt = await res.text();
         console.error("Add player failed:", res.status, txt);
-        alert(`Error adding player: ${res.status} ${txt}`);
+        appendLog(`❌ Error adding player: ${res.status}`);
         return;
       }
 
@@ -169,11 +181,15 @@
       document.getElementById("playerTag").value  = "";
     } catch (err) {
       console.error("Add player network error:", err);
-      alert("Network error adding player (see console).");
+      appendLog("❌ Network error adding player");
     }
   }
 
   async function removePlayer(name) {
+    if (scraperRunning) {
+      appendLog("⚠ Cannot remove players while scraper is running");
+      return;
+    }
     try {
       const res = await fetch(`${BASE_URL}/remove-player`, {
         method: "POST",
@@ -184,14 +200,14 @@
       if (!res.ok) {
         const txt = await res.text();
         console.error("Remove player failed:", res.status, txt);
-        alert(`Error removing player: ${res.status} ${txt}`);
+        appendLog(`❌ Error removing player: ${res.status}`);
         return;
       }
 
       await renderPlayers();
     } catch (err) {
       console.error("Remove player network error:", err);
-      alert("Network error removing player (see console).");
+      appendLog("❌ Network error removing player");
     }
   }
 
@@ -202,8 +218,6 @@
     try {
       const res = await fetch(`${BASE_URL}/players`);
       if (!res.ok) {
-        const txt = await res.text();
-        console.error("Fetch players failed:", res.status, txt);
         tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">Failed to load players</td></tr>`;
         return;
       }
@@ -213,24 +227,25 @@
 
       if (names.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No players being tracked yet</td></tr>`;
-        return;
+      } else {
+        names.forEach((name) => {
+          const tag = players[name];
+          const row = `
+            <tr>
+              <td>${name}</td>
+              <td>${tag}</td>
+              <td class="remove-cell">
+                <button class="remove-btn" onclick="removePlayer('${name}')" aria-label="Remove">&times;</button>
+              </td>
+            </tr>`;
+          tbody.insertAdjacentHTML("beforeend", row);
+        });
       }
-
-      names.forEach((name) => {
-        const tag = players[name];
-        const row = `
-          <tr>
-            <td>${name}</td>
-            <td>${tag}</td>
-            <td class="remove-cell">
-              <button class="remove-btn" onclick="removePlayer('${name}')" aria-label="Remove">&times;</button>
-            </td>
-          </tr>`;
-        tbody.insertAdjacentHTML("beforeend", row);
-      });
     } catch (err) {
-      console.error("Render players network error:", err);
       tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">Network error loading players</td></tr>`;
+    } finally {
+      // Hide loading screen once we tried loading players
+      document.getElementById("loadingOverlay").style.display = "none";
     }
   }
 
@@ -238,8 +253,9 @@
   async function runScraper() {
     const btn = document.querySelector(".scrape-btn");
     btn.disabled = true;
+    scraperRunning = true;
 
-    clearTerminal("#fff");
+    clearTerminal();
     appendLog("▶ Starting scrape...");
 
     try {
@@ -250,10 +266,10 @@
         clearTerminal("red");
         appendLog("❌ " + data.error);
         btn.disabled = false;
+        scraperRunning = false;
         return;
       }
 
-      // start polling
       if (pollInterval) clearInterval(pollInterval);
       pollInterval = setInterval(checkStatus, 5000);
       checkStatus();
@@ -261,6 +277,7 @@
       clearTerminal("red");
       appendLog("❌ Failed to start scraper");
       btn.disabled = false;
+      scraperRunning = false;
     }
   }
 
@@ -284,17 +301,22 @@
         appendLog("✅ Scrape finished!");
         appendLinkToLog(SHEET_URL);
         document.querySelector(".scrape-btn").disabled = false;
+        scraperRunning = false;
       } else if (statusData.status === "error") {
         clearInterval(pollInterval);
         clearTerminal("red");
         appendLog("❌ Error while scraping");
         document.querySelector(".scrape-btn").disabled = false;
+        scraperRunning = false;
+      } else if (statusData.status === "running") {
+        scraperRunning = true;
       }
     } catch (err) {
       clearInterval(pollInterval);
       clearTerminal("red");
       appendLog("❌ Status check failed");
       document.querySelector(".scrape-btn").disabled = false;
+      scraperRunning = false;
     }
   }
 
@@ -324,6 +346,7 @@
   // Initial load
   renderPlayers();
 </script>
+
 
 
 </body>
