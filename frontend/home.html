@@ -303,7 +303,7 @@
         statusData.logs.forEach(l => {
           const line = document.createElement("div");
           line.innerText = l;
-          if (l.includes("ERROR") || l.includes("❌")) {
+          if (l.includes("ERROR")) {
             line.style.color = "red";
           }
           term.appendChild(line);
