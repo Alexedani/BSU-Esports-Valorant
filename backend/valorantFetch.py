@@ -126,8 +126,8 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
             time.sleep(secs)
             continue
         if resp.status_code == 404:
-            print(f"[ERROR] 404 Not Found: {url}")
-            break
+            print(f"[ERROR] Player {name}#{tag} not found or profile hidden")
+            raise Exception("Player not found or profile hidden")
 
         resp.raise_for_status()
         matches = resp.json().get("data", [])

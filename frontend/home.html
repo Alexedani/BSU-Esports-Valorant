@@ -158,9 +158,19 @@
       appendLog("⚠ Cannot add players while scraper is running");
       return;
     }
+
     const name = document.getElementById("playerName").value.trim();
     const tag  = document.getElementById("playerTag").value.trim();
-    if (!name || !tag) return alert("Enter both name and tag!");
+
+    if (!name || !tag) {
+      appendLog("⚠ Enter both name and tag!");
+      return;
+    }
+
+    if (tag.includes("#")) {
+      appendLog("⚠ Do not include '#' in the tag — just the part after it.");
+      return;
+    }
 
     try {
       const res = await fetch(`${BASE_URL}/save-player`, {
@@ -179,6 +189,7 @@
       await renderPlayers();
       document.getElementById("playerName").value = "";
       document.getElementById("playerTag").value  = "";
+      appendLog(`✅ Added player ${name}#${tag}`);
     } catch (err) {
       console.error("Add player network error:", err);
       appendLog("❌ Network error adding player");
@@ -289,7 +300,14 @@
       if (statusData.logs) {
         const term = document.getElementById("terminal");
         term.innerHTML = "";
-        statusData.logs.forEach(l => appendLog(l));
+        statusData.logs.forEach(l => {
+          const line = document.createElement("div");
+          line.innerText = l;
+          if (l.includes("ERROR") || l.includes("❌")) {
+            line.style.color = "red";
+          }
+          term.appendChild(line);
+        });
       }
 
       if (statusData.progress) {
