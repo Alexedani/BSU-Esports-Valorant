@@ -46,6 +46,7 @@ def run_scraper(players: dict):
     progress["logs"] = []
     progress["current"] = 0
     progress["total"] = len(players)
+    progress["status"] = "running"
     log(f"[INFO] Starting scrape for {len(players)} players...")
 
     results = []
@@ -78,6 +79,7 @@ def run_scraper(players: dict):
     if error_occurred:
         log("[ERROR] Scraper aborted due to errors.")
         progress["running"] = False
+        progress["status"] = "aborted"
         return  # don’t post, don’t save
 
     # Post ONCE to Google Apps Script with full batch
@@ -97,6 +99,8 @@ def run_scraper(players: dict):
 
     log("[INFO] Scraper finished successfully.")
     progress["running"] = False
+    progress["status"] = "done"
+
 
 
 # ========= API Routes =========

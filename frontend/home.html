@@ -310,17 +310,20 @@
         });
       }
 
-      if (statusData.progress) {
-        appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`);
-      }
-
-      const lastLog = statusData.logs?.[statusData.logs.length - 1] || "";
-      if (lastLog.includes("Scraper aborted")) {
+      // 🛑 If scraper aborted, stop immediately
+      if (statusData.status === "aborted") {
         clearInterval(pollInterval);
         appendLog("❌ Scraper aborted due to errors — no data posted.");
         document.querySelector(".scrape-btn").disabled = false;
         scraperRunning = false;
         return;
+      }
+
+      // Normal progress only if not aborted
+      if (statusData.progress && statusData.status === "running") {
+        appendLog(
+          `Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`
+        );
       }
 
       if (statusData.status === "done") {
@@ -344,6 +347,7 @@
       scraperRunning = false;
     }
   }
+
 
   // --------------- Last Results Button ---------------
   async function viewLastResults() {
