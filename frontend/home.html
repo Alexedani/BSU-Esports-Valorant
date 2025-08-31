@@ -31,13 +31,14 @@
 
     <!-- Add Player Form -->
     <div class="form-group">
+      <label for="playerFile">Add Players:</label>
       <input type="text" id="playerName" placeholder="Player Name"/>
       <input type="text" id="playerTag" placeholder="Tag"/>
       <button onclick="addPlayer()">Add Player</button>
     </div>
 
     <div class="form-group">
-      <label for="playerFile">Import Players (JSON):</label>
+      <label for="playerFile">Import Players (JSON File):</label>
       <input type="file" id="playerFile" accept=".json" onchange="importPlayers(this)">
     </div>
  
@@ -70,42 +71,61 @@
         <h3>About this tool</h3>
         <button class="help-close" aria-label="Close" onclick="toggleHelp(false)">&times;</button>
       </div>
-      <div class="help-body">
-        <h4>What is this tool?</h4>
-        <p>Tracks Valorant ranked data for listed players and sends weekly stats to our Google Sheet.</p>
+<div class="help-body">
+  <h4>What is this tool?</h4>
+  <p>
+    This tool tracks Valorant ranked data for the listed players and automatically
+    sends weekly stats to our Google Sheet.
+  </p>
 
-        <h4>How to use it</h4>
-        <ol>
-          <li>Add players by name + tag (e.g., <code>master</code> / <code>bsu</code>).</li>
-          <li>Click <strong>Run Script</strong> and watch the terminal.</li>
-          <li>When done, click <strong>View Results</strong> to open the sheet.</li>
-        </ol>
+  <h4>How to use it</h4>
+  <ol>
+    <li>
+      Add players manually by entering <strong>Name</strong> and <strong>Tag</strong>
+      (e.g., <code>master</code> / <code>bsu</code>).
+      <br><em>Note: Do not include “#” in the tag — the system adds it automatically.</em>
+    </li>
+    <li>
+      Or bulk import players from a <strong>JSON file</strong> using the
+      <em>Import Players</em> option.  
+      <br>Your file should look like:
+      <pre>{
+  "master": "bsu",
+  "singlepringle": "5848",
+  "skelesis": "Folk"
+}</pre>
+      Uploading a file will <strong>replace the entire list</strong> of tracked players.
+    </li>
+    <li>Click <strong>Run Script</strong> to start scraping. Progress and logs will appear in the console below.</li>
+    <li>When finished, click <strong>View Results</strong> to open the Google Sheet.</li>
+  </ol>
 
-        <h4>Where are results?</h4>
-        <p> Results are stored in this 
-          <a href="https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0" target="_blank" rel="noopener">
-            Google Sheet
-          </a>
-          .
-        </p>
-        <p>The generated sheet will be named whatever the current date is</p>
-        <p>Please don't share this sheet with anyone.</p>
+  <h4>Important Notes</h4>
+  <ul>
+    <li>⚠ You cannot add or remove players while a scrape is running.</li>
+    <li>⚠ If a player does not exist or their profile is hidden, the scraper will abort and no results will be posted.</li>
+    <li>📂 Re-importing a JSON file (even the same one) always overwrites the player list.</li>
+    <li>⏳ The script may take several minutes per player depending on their recent match history.</li>
+    <li>💡 The loading screen may appear briefly when connecting to the server (Render cold start).</li>
+  </ul>
 
-        <h4>Need help?</h4>
-        <p>If there are any issues, DM me on discord or email me</p>
-        <p>Email: alexanderdaniluc@u.boisestate.edu</p>
-        <p>Discord: ".turbostar"</p>
+  <h4>Where are results?</h4>
+  <p>
+    Results are stored in this
+    <a href="https://docs.google.com/spreadsheets/d/1S1U5COnCPvDH9tTQLk-1Bk2bTJ_ITrC4tSq32LDcBh8/edit#gid=0"
+       target="_blank" rel="noopener">Google Sheet</a>.
+  </p>
+  <p>The generated sheet will be named with the current date.</p>
+  <p>Please do not share this sheet outside the team.</p>
 
+  <h4>Need help?</h4>
+  <p>If there are any issues, contact Alex:</p>
+  <ul>
+    <li>Email: <a href="mailto:alexanderdaniluc@u.boisestate.edu">alexanderdaniluc@u.boisestate.edu</a></li>
+    <li>Discord: <code>.turbostar</code></li>
+  </ul>
+</div>
 
-        <h4>Misc Notes</h4>
-        <ul>
-          <li>You can scroll in the terminal to view all the logs.</li>
-          <li>Sometimes the script can take a long time depending on the length of match history the player has</li>
-          <li>The script also will take longer to run the more players are added</li>
-
-        </ul>
-
-      </div>
     </div>
   </div>
 
@@ -402,7 +422,7 @@
       } catch (err) {
         appendLog("❌ Error parsing file: " + err.message);
       } finally {
-        input.value = ""; // 🔑 allow re-import of same file
+        input.value = ""; 
       }
     };
     reader.readAsText(file);
