@@ -41,7 +41,7 @@ def log(msg: str):
     print(msg, flush=True)
 
 # ========= Background Scraper =========
-def run_scraper(players: dict):
+def run_scraper(players: dict, settings: dict):
     progress["running"] = True
     progress["logs"] = []
     progress["current"] = 0
@@ -55,7 +55,7 @@ def run_scraper(players: dict):
     for idx, (name, tag) in enumerate(players.items(), 1):
         try:
             log(f"[INFO] Fetching {name}#{tag}...")
-            piece = fetch_player_data({name: tag}, post=False)[0]
+            piece = fetch_player_data({name: tag}, post=False, settings=settings)[0]
 
             if "error" in piece:
                 log(f"[ERROR] {name}#{tag}: {piece['error']}")
@@ -156,7 +156,15 @@ def run_scraper_endpoint():
         return jsonify({"error": "No players to scrape"}), 400
     if progress["running"]:
         return jsonify({"error": "Scraper already running"}), 400
-    threading.Thread(target=run_scraper, args=(players,), daemon=True).start()
+
+    data = request.get_json(silent=True) or {}
+    settings = {
+        "daysBack": int(data.get("daysBack", 7)),
+        "minGames": int(data.get("minGames", 1)),
+        "skipToday": bool(data.get("skipToday", False)),
+    }
+
+    threading.Thread(target=run_scraper, args=(players, settings), daemon=True).start()
     return jsonify({"status": "started", "total": len(players)})
 
 @app.route("/status", methods=["GET"])

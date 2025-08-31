@@ -67,10 +67,9 @@ def _num(x, default=0.0):
     except Exception:
         return default
 
-
-# ========= Networking helper =========
+# ========= Safe HTTP =========
 def safe_get(url, headers, retries=3, backoff=5):
-    """GET with retries and longer read timeout (safe for slow API responses)."""
+    """GET with retries and longer read timeout."""
     for attempt in range(1, retries + 1):
         try:
             return requests.get(url, headers=headers, timeout=(10, 60))
@@ -79,7 +78,6 @@ def safe_get(url, headers, retries=3, backoff=5):
             if attempt == retries:
                 raise
             time.sleep(backoff)
-
 
 # ========= Watchdog =========
 class Watchdog:
@@ -104,7 +102,6 @@ class Watchdog:
 
     def expired(self):
         return self._expired
-
 
 # ========= Rank =========
 def fetch_rank(name, tag):
@@ -138,10 +135,11 @@ def fetch_rank(name, tag):
     print(f"[OK] Rank fetched: {rank_data}", flush=True)
     return rank_data
 
-
 # ========= Matches =========
-def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
-    """Aggregate last 7 days of competitive matches by agent."""
+def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM, settings=None):
+    if settings is None:
+        settings = {"daysBack": 7, "minGames": 1, "skipToday": False}
+
     print(f"[INFO] Fetching match history for {name}#{tag}", flush=True)
     headers = {"Authorization": API_KEY, "User-Agent": UA}
 
@@ -149,7 +147,15 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
     enc_tag  = quote(str(tag),  safe="")
 
     now = datetime.now(timezone.utc)
-    cutoff = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # cutoff date logic
+    if settings.get("skipToday"):
+        today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = today_midnight - timedelta(days=settings.get("daysBack", 7))
+    else:
+        cutoff = (now - timedelta(days=settings.get("daysBack", 7))).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
 
     aggregated = {}
     start = 0
@@ -204,7 +210,7 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
                 game_date = now
 
             if game_date < cutoff:
-                print(f"[INFO] Reached match older than 7 days ({game_date}), stopping.", flush=True)
+                print(f"[INFO] Reached match older than {settings['daysBack']} days ({game_date}), stopping.", flush=True)
                 stop_early = True
                 break
 
@@ -250,16 +256,20 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
         start += size
         time.sleep(1.5)
 
-    for agent, st in list(aggregated.items()):
-        g = max(1, st["games"])
-        st["avgADR"]  = st["totalADR"] / g
-        st["avgKD"]   = st["totalKD"] / g
-        st["winRate"] = (st["wins"] / g) * 100.0
-        del st["totalADR"], st["totalKD"], st["wins"]
+    # Finalize to averages + filter by minGames
+    filtered = {}
+    min_games = settings.get("minGames", 1)
+    for agent, st in aggregated.items():
+        if st["games"] >= min_games:
+            g = st["games"]
+            st["avgADR"]  = st["totalADR"] / g
+            st["avgKD"]   = st["totalKD"] / g
+            st["winRate"] = (st["wins"] / g) * 100.0
+            del st["totalADR"], st["totalKD"], st["wins"]
+            filtered[agent] = st
 
-    print(f"[OK] Aggregated stats for {name}#{tag}: {aggregated}", flush=True)
-    return aggregated
-
+    print(f"[OK] Aggregated stats for {name}#{tag}: {filtered}", flush=True)
+    return filtered
 
 # ========= Google Apps Script POST =========
 def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeout: int = 20) -> bool:
@@ -273,9 +283,11 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
         print("[ERROR] RequestException:", str(e), flush=True)
         return False
 
-
 # ========= Orchestrator =========
-def fetch_player_data(players: dict, post=True):
+def fetch_player_data(players: dict, post=True, settings=None):
+    if settings is None:
+        settings = {"daysBack": 7, "minGames": 1, "skipToday": False}
+
     results = []
 
     for name, tag in players.items():
@@ -289,7 +301,7 @@ def fetch_player_data(players: dict, post=True):
             if watchdog.expired():
                 raise TimeoutError(f"Timed out scraping {name}#{tag} (while fetching rank)")
 
-            ag = fetch_agent_stats(name, tag)
+            ag = fetch_agent_stats(name, tag, settings=settings)
             if watchdog.expired():
                 raise TimeoutError(f"Timed out scraping {name}#{tag} (while fetching matches)")
 
@@ -324,7 +336,6 @@ def fetch_player_data(players: dict, post=True):
         print("[INFO] Posted weekly stats to Google Sheets:", posted, flush=True)
 
     return results
-
 
 # ========= Local run =========
 if __name__ == "__main__":

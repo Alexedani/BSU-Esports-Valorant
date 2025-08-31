@@ -58,7 +58,30 @@
       </table>
     </div>
 
+    
+
     <button class="scrape-btn" onclick="runScraper()">Run Script</button>
+    <div class="config-panel">
+  <h3>Scraper Settings</h3>
+
+  <label>
+    Days back:
+    <input type="number" id="daysBack" value="7" min="1" max="30">
+  </label>
+  <br>
+
+  <label>
+    Min games per agent:
+    <input type="number" id="minGames" value="1" min="1" max="20">
+  </label>
+  <br>
+
+  <label>
+    <input type="checkbox" id="skipToday">
+    Skip today’s matches
+  </label>
+</div>
+
   </div>
 
   <!-- Terminal box-->
@@ -91,22 +114,21 @@
       <br>Your file should look like:
       <pre>{
   "master": "bsu",
-  "singlepringle": "5848",
+  "prestige": "bsu",
   "skelesis": "Folk"
 }</pre>
       Uploading a file will <strong>replace the entire list</strong> of tracked players.
     </li>
-    <li>Click <strong>Run Script</strong> to start scraping. Progress and logs will appear in the console below.</li>
+    <li>Click <strong>Run Script</strong> to start the. Progress and logs will appear in the console below.</li>
     <li>When finished, click <strong>View Results</strong> to open the Google Sheet.</li>
   </ol>
 
   <h4>Important Notes</h4>
   <ul>
-    <li>⚠ You cannot add or remove players while a scrape is running.</li>
-    <li>⚠ If a player does not exist or their profile is hidden, the scraper will abort and no results will be posted.</li>
-    <li>📂 Re-importing a JSON file (even the same one) always overwrites the player list.</li>
-    <li>⏳ The script may take several minutes per player depending on their recent match history.</li>
-    <li>💡 The loading screen may appear briefly when connecting to the server (Render cold start).</li>
+    <li>You cannot add or remove players while a scrape is running.</li>
+    <li>If a player does not exist or their profile is hidden, the script will abort and no results will be posted.</li>
+    <li>Re-importing a JSON file (even the same one) always overwrites the player list.</li>
+    <li>The script may take several minutes per player depending on their recent match history.</li>
   </ul>
 
   <h4>Where are results?</h4>
@@ -288,8 +310,18 @@
     clearTerminal();
     appendLog("▶ Starting scrape...");
 
+    const settings = {
+      daysBack: parseInt(document.getElementById("daysBack").value, 10) || 7,
+      minGames: parseInt(document.getElementById("minGames").value, 10) || 1,
+      skipToday: document.getElementById("skipToday").checked
+    };
+
     try {
-      const res = await fetch(`${BASE_URL}/run-scraper`, { method: "POST" });
+      const res = await fetch(`${BASE_URL}/run-scraper`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
       const data = await res.json();
 
       if (data.error) {
