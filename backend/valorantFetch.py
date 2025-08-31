@@ -1,4 +1,3 @@
-# valorantFetch.py
 import os
 import json
 import time
@@ -7,12 +6,10 @@ from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 from dateutil import parser as dateparser
 
-# ========= Config =========
-CONFIG_FILE = os.environ.get("PLAYERS_PATH", "/data/players.json")
-WEEKLY_STATS_PATH = os.environ.get(
-    "WEEKLY_STATS_PATH",
-    os.path.join(os.path.dirname(CONFIG_FILE), "weeklyStats.json")
-)
+# ========= Local storage paths =========
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(BASE_DIR, "players.json")
+WEEKLY_STATS_PATH = os.path.join(BASE_DIR, "weeklyStats.json")
 
 # Google Apps Script Web App (POST endpoint)
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzhP5SFu0ewcDedjIjcpyelc4lzELJWqupbPQH0kXCaRUpt36ITjtFPB1YaIbJKgmEJqQ/exec"
@@ -34,7 +31,8 @@ def load_players():
             return json.load(f)
     except FileNotFoundError:
         return {}
-    except Exception:
+    except Exception as e:
+        print("[ERROR] load_players:", e)
         return {}
 
 def _sleep_for_rate_limit(resp):
@@ -60,7 +58,6 @@ def _num(x, default=0.0):
         if isinstance(x, str):
             return float(x.strip().replace(",", ""))
         if isinstance(x, dict):
-            # Try common keys that might hold totals
             for k in ("dealt", "made", "damage", "total", "overall", "value", "won", "lost"):
                 if k in x:
                     return _num(x[k], default)
@@ -82,7 +79,7 @@ def fetch_rank(name, tag):
         resp = requests.get(url, headers=headers)
 
     resp.raise_for_status()
-    body = resp.json().get("data", {})  # v2 returns {data: {...}}
+    body = resp.json().get("data", {})
     cur = body.get("current_data", {}) or body.get("current", {})
 
     tier = cur.get("currenttierpatched") or cur.get("current_tier_patched") or "Unranked"
@@ -94,21 +91,12 @@ def fetch_rank(name, tag):
     print(f"[OK] Rank fetched: {rank_data}")
     return rank_data
 
-# ========= Matches -> Agent Aggregation (v4) =========
+# ========= Matches =========
 def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
-    """
-    Aggregate last 7 days of competitive matches by agent from HenrikDev v4.
-
-    Endpoint (per docs):
-      GET /valorant/v4/matches/{region}/{platform}/{name}/{tag}
-      players: list
-      teams: list with {'team_id','won','rounds':{'won','lost'}}
-      rounds: list (one per round)
-    """
+    """Aggregate last 7 days of competitive matches by agent."""
     print(f"[INFO] Fetching match history for {name}#{tag}")
     headers = {"Authorization": API_KEY, "User-Agent": UA}
 
-    # URL-encode name/tag safely
     enc_name = quote(str(name), safe="")
     enc_tag  = quote(str(tag),  safe="")
 
@@ -123,7 +111,6 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
     want_tag  = (tag  or "").strip().lower()
 
     def same_player(p):
-        # v4 sample has 'name'/'tag'
         n = (p.get("name") or "").strip().lower()
         t = (p.get("tag")  or "").strip().lower()
         return n == want_name and t == want_tag
@@ -133,15 +120,12 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
         print(f"[DEBUG] Fetching {url}")
         resp = requests.get(url, headers=headers)
 
-        # Rate limits
         if resp.status_code == 429:
             secs = _sleep_for_rate_limit(resp)
             print(f"[WARN] 429 Too Many Requests — sleeping {secs} seconds")
             time.sleep(secs)
             continue
-
         if resp.status_code == 404:
-            # If this happens, name/tag/region/platform is wrong (or account hidden)
             print(f"[ERROR] 404 Not Found: {url}")
             break
 
@@ -157,7 +141,6 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
                 continue
 
             meta = match.get("metadata", {})
-            # v4 sample has ISO datetime at metadata.started_at
             started_at = meta.get("started_at")
             try:
                 game_date = dateparser.parse(started_at).astimezone(timezone.utc) if started_at else now
@@ -169,43 +152,19 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
                 stop_early = True
                 break
 
-            # ---- players: list ----
             players_list = match.get("players", []) or []
             player_obj = next((p for p in players_list if isinstance(p, dict) and same_player(p)), None)
             if not player_obj:
                 continue
 
-            # Agent name (v4: player.agent.name)
             agent_name = (player_obj.get("agent") or {}).get("name") or "Unknown"
 
-            # ----- compute total rounds in match (v4) -----
             rounds_list = match.get("rounds", [])
             if isinstance(rounds_list, list) and rounds_list:
                 total_rounds = len(rounds_list)
             else:
-                total_rounds = 0
-                teams_block = match.get("teams", [])
-                if isinstance(teams_block, list):
-                    for tm in teams_block:
-                        r = tm.get("rounds", {}) or {}
-                        won  = _num(r.get("won", 0))
-                        lost = _num(r.get("lost", 0))
-                        if won or lost:
-                            total_rounds = int(won + lost)
-                            break
-                elif isinstance(teams_block, dict):
-                    # legacy dict-shaped fallback
-                    red  = teams_block.get("red")  or teams_block.get("Red")  or {}
-                    blue = teams_block.get("blue") or teams_block.get("Blue") or {}
-                    rw = _num((red.get("rounds") or {}).get("won", red.get("rounds_won", 0)))
-                    rl = _num((red.get("rounds") or {}).get("lost", red.get("rounds_lost", 0)))
-                    if rw or rl:
-                        total_rounds = int(rw + rl)
+                total_rounds = int(_num(meta.get("rounds_played", 0))) or 1
 
-                if total_rounds <= 0:
-                    total_rounds = int(_num(meta.get("rounds_played", 0))) or 1  # last resort
-
-            # ----- damage, ADR, KD -----
             stats = player_obj.get("stats", {}) or {}
             damage_total = _num((stats.get("damage") or {}).get("dealt", 0))
             kills  = _num(stats.get("kills", 0))
@@ -213,7 +172,6 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
             kd = kills / (deaths if deaths else 1.0)
             adr = damage_total / float(total_rounds)
 
-            # ----- win? (v4 teams is a list with 'team_id'/'won') -----
             win = False
             my_team_id = player_obj.get("team_id")
             teams_block = match.get("teams", [])
@@ -222,13 +180,7 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
                     if tm.get("team_id") == my_team_id:
                         win = bool(tm.get("won"))
                         break
-            else:
-                # legacy dict-shaped fallback
-                team_key = (player_obj.get("team") or "").lower()
-                tb = teams_block.get(team_key) or teams_block.get(team_key.capitalize()) or {}
-                win = bool(tb.get("has_won"))
 
-            # ----- aggregate by agent -----
             agg = aggregated.setdefault(agent_name, {"games": 0, "totalADR": 0.0, "totalKD": 0.0, "wins": 0})
             agg["games"] += 1
             agg["totalADR"] += adr
@@ -236,18 +188,12 @@ def fetch_agent_stats(name, tag, region=REGION, platform=PLATFORM):
             if win:
                 agg["wins"] += 1
 
-        if stop_early:
-            break
-
-        # Pagination
-        if len(matches) < size:
-            print("[INFO] Last page reached.")
+        if stop_early or len(matches) < size:
             break
 
         start += size
         time.sleep(1.5)
 
-    # Finalize to averages
     for agent, st in list(aggregated.items()):
         g = max(1, st["games"])
         st["avgADR"]  = st["totalADR"] / g
@@ -263,10 +209,7 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
     try:
         resp = requests.post(url, json=weekly_stats, headers={"Content-Type": "application/json"}, timeout=timeout)
         if resp.status_code != 200:
-            try:
-                print("[ERROR] GAS non-200:", resp.status_code, resp.json())
-            except Exception:
-                print("[ERROR] GAS non-200:", resp.status_code, resp.text)
+            print("[ERROR] GAS non-200:", resp.status_code, resp.text)
             return False
         return True
     except requests.RequestException as e:
@@ -275,55 +218,40 @@ def send_to_google_apps_script(weekly_stats: list, url: str = WEBAPP_URL, timeou
 
 # ========= Orchestrator =========
 def fetch_player_data(players: dict, post=True):
-    """
-    Build a list of player result dicts.
-    Never throws for a single bad player; it records an 'error' field instead.
-    If post=True, POST the whole list to Google Apps Script once.
-    """
     results = []
-
     for name, tag in players.items():
-        entry = {"player": f"{name}#{tag}"}  # pre-create so we can safely append even on error
+        entry = {"player": f"{name}#{tag}"}
         try:
-            rk = fetch_rank(name, tag)                     # <- rank local var
-            ag = fetch_agent_stats(name, tag)              # <- agents local var
+            rk = fetch_rank(name, tag)
+            ag = fetch_agent_stats(name, tag)
             entry["rank"] = rk
             entry["agents"] = ag
         except Exception as e:
-            # Capture the error for this player but keep going
             err = f"{type(e).__name__}: {e}"
             print(f"[ERROR] Failed for {name}#{tag}: {err}")
             entry["error"] = err
-            # Optional: include partials if either call succeeded before failing
-            if "rank" not in entry:
-                entry["rank"] = None
-            if "agents" not in entry:
-                entry["agents"] = {}
-
+            entry.setdefault("rank", None)
+            entry.setdefault("agents", {})
         results.append(entry)
 
-    # Save locally for your pipeline
     try:
-        os.makedirs(os.path.dirname(WEEKLY_STATS_PATH), exist_ok=True)
         with open(WEEKLY_STATS_PATH, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print("[WARN] Could not write weeklyStats.json:", e)
 
-    # Post once with the whole batch
     if post:
         posted = send_to_google_apps_script(results)
         print("[INFO] Posted weekly stats to Google Sheets:", posted)
 
     return results
 
-
-
 # ========= Local run =========
 if __name__ == "__main__":
-    players = {
-        "master":   "bsu",
-        "skelesis": "Folk",
-        # add more here...
-    }
+    players = load_players()
+    if not players:
+        players = {
+            "master": "bsu",
+            "skelesis": "Folk"
+        }
     fetch_player_data(players)
