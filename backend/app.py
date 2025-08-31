@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import json
 import threading
@@ -11,17 +10,10 @@ from valorantFetch import fetch_player_data
 app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
 CORS(app)
 
-# ========= Persistent storage on Render disk =========
-# Attach a Persistent Disk in Render mounted at /data
-# (Dashboard -> your service -> Disks -> Add Disk, mount path /data)
-PLAYERS_PATH = os.environ.get("PLAYERS_PATH", "/data/players.json")
-os.makedirs(os.path.dirname(PLAYERS_PATH), exist_ok=True)
-if not os.path.exists(PLAYERS_PATH):
-    with open(PLAYERS_PATH, "w", encoding="utf-8") as f:
-        json.dump({}, f)
-
-# Optional: persist last results alongside players.json
-WEEKLY_STATS_PATH = os.path.join(os.path.dirname(PLAYERS_PATH), "weeklyStats.json")
+# ========= Local file storage =========
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PLAYERS_PATH = os.path.join(BASE_DIR, "players.json")
+WEEKLY_STATS_PATH = os.path.join(BASE_DIR, "weeklyStats.json")
 
 players_lock = threading.Lock()
 
@@ -60,15 +52,23 @@ def run_scraper(players: dict):
     for idx, (name, tag) in enumerate(players.items(), 1):
         try:
             log(f"[INFO] Fetching {name}#{tag}...")
-            # Fetch ONE player without posting (so we can post once at the end)
             piece = fetch_player_data({name: tag}, post=False)[0]
+
+            # If fetch_player_data returned an error field, log it clearly
+            if "error" in piece:
+                log(f"[ERROR] {name}#{tag}: {piece['error']}")
+            else:
+                log(f"[OK] Finished {name}#{tag}")
+
             results.append(piece)
-            log(f"[OK] Finished {name}#{tag}")
+
         except Exception as e:
-            log(f"[ERROR] {name}#{tag}: {e}")
-            results.append({"player": f"{name}#{tag}", "error": str(e)})
+            msg = str(e) or "Unknown error"
+            log(f"[ERROR] {name}#{tag}: {msg}")
+            results.append({"player": f"{name}#{tag}", "error": msg})
+
         finally:
-            progress["current"] = idx  # moves 1/3, 2/3, ...
+            progress["current"] = idx
 
     # Post ONCE to Google Apps Script with full batch
     try:
@@ -78,7 +78,7 @@ def run_scraper(players: dict):
     except Exception as e:
         log(f"[ERROR] Post to Google Sheets failed: {e}")
 
-    # Save last results on the disk (optional)
+    # Save last results locally
     try:
         with open(WEEKLY_STATS_PATH, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
@@ -87,6 +87,7 @@ def run_scraper(players: dict):
 
     log("[INFO] Scraper finished.")
     progress["running"] = False
+
 
 # ========= API Routes =========
 @app.route("/")
@@ -148,7 +149,7 @@ def run_scraper_endpoint():
 def status():
     return jsonify(progress)
 
-# ---- Aliases the frontend expects ----
+# ---- Aliases ----
 @app.route("/save-player", methods=["POST"])
 def save_player_alias():
     return add_player()
@@ -168,7 +169,7 @@ def scraper_status_alias():
         }
     })
 
-# ========= Static Files (keep LAST) =========
+# ========= Static Files =========
 @app.route("/<path:path>", methods=["GET"])
 def static_proxy(path):
     return send_from_directory(app.static_folder, path)

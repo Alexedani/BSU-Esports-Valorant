@@ -72,6 +72,11 @@ def fetch_rank(name, tag):
     print(f"[INFO] Fetching rank for {name}#{tag} -> {url}")
     resp = requests.get(url, headers=headers)
 
+    if resp.status_code == 404:
+        msg = f"Player {name}#{tag} not found or profile hidden"
+        print(f"[ERROR] {msg}")
+        raise Exception(msg)
+
     if resp.status_code == 429:
         secs = _sleep_for_rate_limit(resp)
         print(f"[WARN] 429 on rank. Sleeping {secs}s…")
@@ -228,9 +233,10 @@ def fetch_player_data(players: dict, post=True):
             entry["rank"] = rk
             entry["agents"] = ag
         except Exception as e:
-            err = f"{type(e).__name__}: {e}"
-            print(f"[ERROR] Failed for {name}#{tag}: {err}")
-            entry["error"] = err
+            # User-friendly error string
+            msg = str(e) or "Unknown error"
+            print(f"[ERROR] Failed for {name}#{tag}: {msg}")
+            entry["error"] = msg
             entry.setdefault("rank", None)
             entry.setdefault("agents", {})
         results.append(entry)
