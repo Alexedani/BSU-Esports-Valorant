@@ -314,6 +314,15 @@
         appendLog(`Progress: ${statusData.progress.current}/${statusData.progress.total} players scraped`);
       }
 
+      const lastLog = statusData.logs?.[statusData.logs.length - 1] || "";
+      if (lastLog.includes("Scraper aborted")) {
+        clearInterval(pollInterval);
+        appendLog("❌ Scraper aborted due to errors — no data posted.");
+        document.querySelector(".scrape-btn").disabled = false;
+        scraperRunning = false;
+        return;
+      }
+
       if (statusData.status === "done") {
         clearInterval(pollInterval);
         appendLog("✅ Scrape finished!");
@@ -322,7 +331,6 @@
         scraperRunning = false;
       } else if (statusData.status === "error") {
         clearInterval(pollInterval);
-        clearTerminal("red");
         appendLog("❌ Error while scraping");
         document.querySelector(".scrape-btn").disabled = false;
         scraperRunning = false;
@@ -331,7 +339,6 @@
       }
     } catch (err) {
       clearInterval(pollInterval);
-      clearTerminal("red");
       appendLog("❌ Status check failed");
       document.querySelector(".scrape-btn").disabled = false;
       scraperRunning = false;

@@ -49,26 +49,36 @@ def run_scraper(players: dict):
     log(f"[INFO] Starting scrape for {len(players)} players...")
 
     results = []
+    error_occurred = False
+
     for idx, (name, tag) in enumerate(players.items(), 1):
         try:
             log(f"[INFO] Fetching {name}#{tag}...")
             piece = fetch_player_data({name: tag}, post=False)[0]
 
-            # If fetch_player_data returned an error field, log it clearly
             if "error" in piece:
                 log(f"[ERROR] {name}#{tag}: {piece['error']}")
+                results.append(piece)
+                error_occurred = True
+                break  # stop scraping immediately
             else:
                 log(f"[OK] Finished {name}#{tag}")
-
-            results.append(piece)
+                results.append(piece)
 
         except Exception as e:
             msg = str(e) or "Unknown error"
             log(f"[ERROR] {name}#{tag}: {msg}")
             results.append({"player": f"{name}#{tag}", "error": msg})
+            error_occurred = True
+            break  # stop scraping immediately
 
         finally:
             progress["current"] = idx
+
+    if error_occurred:
+        log("[ERROR] Scraper aborted due to errors.")
+        progress["running"] = False
+        return  # don’t post, don’t save
 
     # Post ONCE to Google Apps Script with full batch
     try:
@@ -85,7 +95,7 @@ def run_scraper(players: dict):
     except Exception as e:
         log(f"[WARN] Could not write weeklyStats.json: {e}")
 
-    log("[INFO] Scraper finished.")
+    log("[INFO] Scraper finished successfully.")
     progress["running"] = False
 
 
