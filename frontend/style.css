@@ -363,3 +363,27 @@ table tr { height: 28px; }    /* hard cap row height if needed */
   opacity: 1;
   background: #f00;
 }
+
+#terminal-container {
+  position: relative;
+  width: 450px;
+  margin: 20px auto 0;
+  text-align: left;
+}
+
+/* Label above terminal */
+.terminal-label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 6px;
+  padding-left: 2px;
+  font-family: monospace;
+  opacity: 0.9;
+}
+
+#app {
+  transform: scale(0.85);
+  transform-origin: top center; /* keeps scaling centered at top */
+  width: 100%;
+}
