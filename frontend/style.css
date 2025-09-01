@@ -381,9 +381,3 @@ table tr { height: 28px; }    /* hard cap row height if needed */
   font-family: monospace;
   opacity: 0.9;
 }
-
-#app {
-  transform: scale(0.85);
-  transform-origin: top center; /* keeps scaling centered at top */
-  width: 100%;
-}
