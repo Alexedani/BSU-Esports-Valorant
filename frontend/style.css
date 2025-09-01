@@ -155,6 +155,7 @@ table tr { height: 28px; }    /* hard cap row height if needed */
 .login-card input { width: 100%; margin-bottom: 10px; }
 
 /* Terminal box */
+/* Terminal box */
 #terminal {
   background: black;
   color: #00ff00; /* classic green text */
@@ -164,14 +165,16 @@ table tr { height: 28px; }    /* hard cap row height if needed */
   padding: 10px;
   border-radius: 8px;
   width: 450px;
-  max-height: 120px; /* a touch taller for comfort */
-  overflow-y: auto;  /* scroll if needed */
+  height: 150px;      /* 👈 fixed height, always this tall */
+  max-height: 150px;  /* 👈 optional safety cap (same as height) */
+  overflow-y: auto;   /* scroll if needed */
   line-height: 1.3em;
   text-align: left;
   white-space: pre-wrap;
   margin-left: auto;
   margin-right: auto;
 }
+
 #terminal::-webkit-scrollbar { display: none; } /* Chrome */
 
 /* Help button (inside card) */
@@ -338,4 +341,25 @@ table tr { height: 28px; }    /* hard cap row height if needed */
 /* Checkbox styling */
 .config-panel input[type="checkbox"] {
   transform: scale(1.1);
+}
+
+/* Force Reset Button */
+.reset-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  background: #d00;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.reset-btn:hover {
+  opacity: 1;
+  background: #f00;
 }

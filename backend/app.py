@@ -34,7 +34,14 @@ def write_players(players: dict):
             json.dump(players, f, indent=2, ensure_ascii=False)
 
 # ========= Progress State =========
-progress = {"logs": [], "current": 0, "total": 0, "running": False}
+# ========= Progress State =========
+progress = {
+    "logs": [],
+    "current": 0,
+    "total": 0,
+    "running": False,   # always reset on boot
+    "status": "idle"
+}
 
 def log(msg: str):
     progress["logs"].append(msg)
@@ -203,6 +210,15 @@ def bulk_add_players():
 
     log(f"[INFO] Bulk replaced players list with {len(data)} players")
     return jsonify(data)
+
+@app.route("/reset-scraper", methods=["POST"])
+def reset_scraper():
+    progress["logs"].append("[INFO] Scraper state force-reset by user.")
+    progress["current"] = 0
+    progress["total"] = 0
+    progress["running"] = False
+    progress["status"] = "idle"
+    return jsonify({"status": "reset"})
 
 
 # ========= Static Files =========

@@ -81,12 +81,15 @@
     </div>
 
     <button class="scrape-btn" onclick="runScraper()">Run Script</button>
-
+    
 
   </div>
 
   <!-- Terminal box-->
-  <div id="terminal" title="Scroll to view history"></div>
+  <div id="terminal-container" style="position: relative;">
+    <div id="terminal" title="Scroll to view history"></div>
+    <button class="reset-btn" onclick="resetScraper()">Force Reset</button>
+  </div>
 
   <!--info overlay-->
   <div id="helpOverlay" class="help-overlay" onclick="toggleHelp(false)">
@@ -485,6 +488,30 @@
     };
     reader.readAsText(file);
   }
+
+  async function resetScraper() {
+    if (scraperRunning) {
+      appendLog("Aborting current scrape and resetting...");
+    } else {
+      appendLog("No active scrape. Resetting state anyway...");
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/reset-scraper`, { method: "POST" });
+      if (!res.ok) {
+        appendLog("❌ Failed to reset scraper");
+        return;
+      }
+      const data = await res.json();
+      appendLog("✅ Scraper state reset complete.");
+      scraperRunning = false;
+      document.querySelector(".scrape-btn").disabled = false;
+      if (pollInterval) clearInterval(pollInterval);
+    } catch (err) {
+      appendLog("❌ Network error resetting scraper");
+    }
+  }
+
 
 
   // Initial load
